@@ -1,0 +1,15 @@
+{
+  "name": "MaxBot Condovale",
+  "short_name": "MaxBot",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#004488",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MaxBot - Assistente Condovale</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#004488" />
+  <link rel="icon" href="logo.png" type="image/png">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f2f7fc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    header {
+      margin-top: 1rem;
+    }
+    img {
+      width: 120px;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      color: #004488;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    #chatbot {
+      width: 100%;
+      max-width: 420px;
+      min-height: 640px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="Condovale Logo" />
+    <h1>Olá! Eu sou o MaxBot 🤖</h1>
+    <p>Seu assistente virtual da Condovale. Como posso te ajudar hoje?</p>
+  </header>
+
+  <div id="chatbot"></div>
+
+  <script
+    src="https://chat.openai.com/static/js/chat-widget.js"
+    assistant-id="asst_dk7R5Q7jPZSSB1imMz2NtfTY"
+    data-api-key="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"
+  ></script>
+</body>
+</html>
