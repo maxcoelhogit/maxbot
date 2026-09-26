@@ -1,0 +1,12 @@
+{
+  "PERIMETER": {"reference":"Segurança/perímetro","text":"Câmeras voltadas à rua servem prioritariamente para segurança e contexto; comportamento normal em via pública não deve ser tratado como infração condominial."},
+  "GARAGE_GATE": {"reference":"Regulamento Interno, Cap. IV, Art. 19, item 8","text":"Ao entrar ou sair da garagem, o condômino deve aguardar o fechamento completo do portão."},
+  "STRANGERS_ACCESS": {"reference":"Regulamento Interno, Art. 21","text":"A entrada de pessoas estranhas ao condomínio somente pode ocorrer mediante autorização do residente."},
+  "DELIVERIES_SERVICES": {"reference":"Regulamento Interno, Art. 17, §8","text":"Entregadores devem ser recebidos no portão externo. Prestadores de serviço somente devem entrar se acompanhados pelos condôminos, tanto na entrada quanto na saída."},
+  "COMMON_AREAS": {"reference":"Regulamento Interno, Art. 17, §§9-10","text":"É proibida a circulação e permanência de animais nas áreas comuns e andar de bicicleta, patins ou skate nas áreas comuns."},
+  "BICYCLES": {"reference":"Regulamento Interno, Cap. IV, Art. 19, item 7","text":"O estacionamento de bicicletas deve ocorrer somente na área específica destinada a tal finalidade; a simples presença de bicicleta deve ser tratada com cautela quando a câmera puder mostrar a área destinada a bicicletas."},
+  "GARAGE_USE": {"reference":"Regulamento Interno, Cap. IV, Art. 19, itens 2-5","text":"Na garagem é vedado estacionar impedindo ou dificultando manobras; guardar móveis, utensílios e sobressalentes; permitir permanência de crianças, trânsito de bicicletas, jogos ou esportes; e executar reparos, lavagem de veículos, montagem de móveis, pintura ou serviços semelhantes."},
+  "ELEVATOR": {"reference":"Regulamento Interno, Art. 17, §7","text":"É proibido fumar nos elevadores."},
+  "TECHNICAL_AREA": {"reference":"Segurança operacional","text":"Sinalizar apenas acesso ou permanência claramente atípicos; não inferir autorização quando a imagem não permitir confirmar o contexto."},
+  "DISCIPLINE": {"reference":"Regulamento Interno, Art. 22","text":"O sistema não aplica sanções. O Regulamento prevê advertência escrita e multa na reincidência; qualquer decisão disciplinar depende de revisão humana pela administração."}
+}
