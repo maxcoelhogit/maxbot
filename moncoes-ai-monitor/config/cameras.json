@@ -1,0 +1,30 @@
+{
+  "100": {
+    "host": "192.168.10.100",
+    "mode": "realtime",
+    "channels": {
+      "1": {"name":"Rua / calçada - sentido A","priority":"medium","enabled":true,"rotate":0,"rules":["PERIMETER"]},
+      "2": {"name":"Rua / calçada - sentido B","priority":"medium","enabled":true,"rotate":0,"rules":["PERIMETER"]},
+      "3": {"name":"Portão de veículos / acesso frontal","priority":"critical","enabled":true,"rotate":0,"rules":["GARAGE_GATE","STRANGERS_ACCESS"]},
+      "4": {"name":"Garagem interna","priority":"high","enabled":true,"rotate":0,"rules":["GARAGE_USE"]},
+      "5": {"name":"Hall do elevador / térreo","priority":"high","enabled":true,"rotate":0,"rules":["COMMON_AREAS","STRANGERS_ACCESS"]},
+      "6": {"name":"Entrada social / caixas de correio","priority":"critical","enabled":true,"rotate":0,"rules":["DELIVERIES_SERVICES","STRANGERS_ACCESS","COMMON_AREAS"]},
+      "7": {"name":"Garagem interna - área ampla","priority":"high","enabled":true,"rotate":0,"rules":["GARAGE_USE"]},
+      "8": {"name":"Garagem interna - outro ângulo","priority":"high","enabled":true,"rotate":0,"rules":["GARAGE_USE"]}
+    }
+  },
+  "101": {
+    "host": "192.168.10.101",
+    "mode": "poll",
+    "channels": {
+      "1": {"name":"Área comum / bicicletas / bancos","priority":"high","enabled":true,"rotate":0,"rules":["COMMON_AREAS","BICYCLES"]},
+      "2": {"name":"Área técnica / medidores","priority":"low","enabled":true,"rotate":90,"rules":["TECHNICAL_AREA"]},
+      "3": {"name":"Interior do elevador","priority":"medium","enabled":true,"rotate":90,"rules":["ELEVATOR"]},
+      "4": {"name":"Canal sem imagem útil","priority":"off","enabled":false,"rotate":0,"rules":[]},
+      "5": {"name":"Canal sem imagem útil","priority":"off","enabled":false,"rotate":0,"rules":[]},
+      "6": {"name":"Canal sem imagem útil","priority":"off","enabled":false,"rotate":0,"rules":[]},
+      "7": {"name":"Canal sem imagem útil","priority":"off","enabled":false,"rotate":0,"rules":[]},
+      "8": {"name":"Canal sem imagem útil","priority":"off","enabled":false,"rotate":0,"rules":[]}
+    }
+  }
+}
