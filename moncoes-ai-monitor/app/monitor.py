@@ -262,10 +262,13 @@ def listener_dvr100():
             ) as response:
                 response.raise_for_status()
                 backoff = 2
-                for raw in response.iter_lines(decode_unicode=True):
+                for raw in response.iter_lines(decode_unicode=False):
                     if STOP.is_set():
                         break
-                    line = (raw or "").strip()
+                    if isinstance(raw, bytes):
+                        line = raw.decode("utf-8", errors="ignore").strip()
+                    else:
+                        line = str(raw or "").strip()
                     match = re.search(
                         r"Code=VideoMotion;action=Start;index=(\d+)",
                         line,
