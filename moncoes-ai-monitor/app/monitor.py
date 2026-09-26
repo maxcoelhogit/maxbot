@@ -56,6 +56,25 @@ def event_key(dvr: str, channel: int, start: datetime) -> str:
     return f"{dvr}:{channel}:{start.strftime('%Y%m%d%H%M%S')}"
 
 
+def event_exists_nearby(
+    dvr: str,
+    channel: int,
+    start: datetime,
+    tolerance_seconds: int = DEBOUNCE,
+) -> bool:
+    lower = (start - timedelta(seconds=tolerance_seconds)).isoformat()
+    upper = (start + timedelta(seconds=tolerance_seconds)).isoformat()
+    with db() as con:
+        row = con.execute(
+            """SELECT 1 FROM events
+               WHERE dvr=? AND channel=? AND error IS NULL
+                 AND started_at>=? AND started_at<=?
+               LIMIT 1""",
+            (dvr, channel, lower, upper),
+        ).fetchone()
+    return bool(row)
+
+
 def save_record(
     key: str,
     dvr: str,
@@ -124,9 +143,8 @@ def process_event(
         return
 
     key = event_key(dvr, channel, start)
-    with db() as con:
-        if con.execute("SELECT 1 FROM events WHERE event_key=?", (key,)).fetchone():
-            return
+    if event_exists_nearby(dvr, channel, start):
+        return
 
     host = CAMERAS[dvr]["host"]
     work = EVENT_DIR / start.strftime("%Y-%m-%d") / key.replace(":", "_")
@@ -317,7 +335,7 @@ def search_motion(
             {
                 "action": "findFile",
                 "object": obj,
-                "condition.Channel": physical_channel,
+                "condition.Channel": max(0, physical_channel - 1),
                 "condition.StartTime": start.strftime("%Y-%m-%d %H:%M:%S"),
                 "condition.EndTime": end.strftime("%Y-%m-%d %H:%M:%S"),
                 "condition.Types[0]": "dav",
@@ -387,41 +405,54 @@ def search_motion(
     return merged
 
 
-def poll_dvr101():
-    host = CAMERAS["101"]["host"]
+def poll_dvr(dvr: str):
+    host = CAMERAS[dvr]["host"]
+    state_key = f"dvr{dvr}_last_poll"
 
     while not STOP.is_set():
-        try:
-            now = now_local()
-            previous = get_state("dvr101_last_poll", "")
-            start = (
-                datetime.fromisoformat(previous)
-                if previous
-                else now - timedelta(minutes=5)
-            )
-            start = max(
-                start - timedelta(seconds=10),
-                now - timedelta(minutes=15),
-            )
+        now = now_local()
+        previous = get_state(state_key, "")
+        start = (
+            datetime.fromisoformat(previous)
+            if previous
+            else now - timedelta(minutes=10)
+        )
+        start = max(
+            start - timedelta(seconds=DEBOUNCE),
+            now - timedelta(minutes=20),
+        )
 
-            for channel_text, cam in CAMERAS["101"]["channels"].items():
-                if not cam.get("enabled", False):
-                    continue
-                channel = int(channel_text)
-                for event_start, event_end in search_motion(
-                    host, channel, start, now
-                ):
+        found_total = 0
+        for channel_text, cam in CAMERAS[dvr]["channels"].items():
+            if not cam.get("enabled", False):
+                continue
+            channel = int(channel_text)
+            try:
+                events = search_motion(host, channel, start, now)
+                found_total += len(events)
+                for event_start, event_end in events:
                     process_event(
-                        "101",
+                        dvr,
                         channel,
                         event_start,
                         event_end,
                         "poll",
                     )
+            except Exception as exc:
+                log.warning(
+                    "Reconciliação DVR%s cam%s falhou: %s",
+                    dvr,
+                    channel,
+                    exc,
+                )
 
-            set_state("dvr101_last_poll", now.isoformat())
-        except Exception as exc:
-            log.exception("Polling DVR101 falhou: %s", exc)
+        set_state(state_key, now.isoformat())
+        if found_total:
+            log.info(
+                "Reconciliação DVR%s encontrou %s grupo(s) de movimento",
+                dvr,
+                found_total,
+            )
 
         STOP.wait(POLL_SECONDS)
 
@@ -439,7 +470,8 @@ if __name__ == "__main__":
 
     threads = [
         threading.Thread(target=listener_dvr100, daemon=True),
-        threading.Thread(target=poll_dvr101, daemon=True),
+        threading.Thread(target=poll_dvr, args=("100",), daemon=True),
+        threading.Thread(target=poll_dvr, args=("101",), daemon=True),
     ]
     for thread in threads:
         thread.start()
