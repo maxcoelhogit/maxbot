@@ -84,5 +84,6 @@ Classifique somente a evidência visual. A imagem é uma montagem 2x2 em ordem t
             },
         ],
         text_format=Analysis,
+        store=False,
     )
     return response.output_parsed
