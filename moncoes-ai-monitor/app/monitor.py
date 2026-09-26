@@ -171,7 +171,10 @@ def process_event(
                 log.warning("Segunda revisão IA falhou; usando triagem: %s", exc)
 
         evidence_path = None
-        if final.status in {"potential_occurrence", "critical", "uncertain"}:
+        if (
+            final.status in {"potential_occurrence", "critical", "uncertain"}
+            and final.category != "ai_disabled"
+        ):
             destination = (
                 EVIDENCE_DIR
                 / start.strftime("%Y-%m-%d")
