@@ -26,7 +26,9 @@ from common import (
     make_contact_sheet,
     now_local,
     record_prefilter_result,
+    safe_exception_text,
     safe_remove,
+    sanitize_historical_errors,
     set_state,
 )
 from prefilter import inspect_frames
@@ -333,10 +335,11 @@ def process_event(
         return True
 
     except Exception as exc:
-        log.exception("Falha processando %s", key)
+        clean_error = safe_exception_text(exc)
+        log.error("Falha processando %s: %s", key, clean_error)
         save_record(
             key, dvr, channel, cam, start, end, source,
-            None, None, None, str(exc)
+            None, None, None, clean_error
         )
         return False
     finally:
@@ -670,6 +673,10 @@ def handle_signal(*_):
 if __name__ == "__main__":
     if not PASSWORD:
         raise SystemExit("DVR_PASS ausente")
+
+    cleaned = sanitize_historical_errors()
+    if cleaned:
+        log.info("Credenciais removidas de %s erro(s) histórico(s)", cleaned)
 
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
