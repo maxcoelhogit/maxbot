@@ -260,23 +260,35 @@ def process_event(
             triage, final, evidence_path
         )
 
-        publish_portal_event(
-            {
-                "event_key": key,
-                "occurred_at": start.isoformat(),
-                "dvr": dvr,
-                "channel": channel,
-                "camera": cam["name"],
-                "status": final.status,
-                "confidence": final.confidence,
-                "category": final.category,
-                "description": final.description,
-                "rule_reference": final.rule_reference,
-                "needs_human_review": final.needs_human_review,
-                "source": source,
-                "notify_external": MODE == "production",
-            }
-        )
+        portal_payload = {
+            "event_key": key,
+            "occurred_at": start.isoformat(),
+            "dvr": dvr,
+            "channel": channel,
+            "camera": cam["name"],
+            "status": final.status,
+            "confidence": final.confidence,
+            "category": final.category,
+            "description": final.description,
+            "rule_reference": final.rule_reference,
+            "needs_human_review": final.needs_human_review,
+            "source": source,
+            "notify_external": MODE == "production",
+        }
+
+        # Empty/technical motion remains in the local audit database, but it
+        # must not pollute the portal activity feed.
+        if not (
+            final.status == "normal"
+            and final.category == "background_motion"
+        ):
+            publish_portal_event(portal_payload)
+        else:
+            log.info(
+                "Evento técnico %s não publicado no portal: %s",
+                key,
+                final.description,
+            )
 
         log.info(
             "Evento %s camera=%s status=%s confidence=%.2f",
