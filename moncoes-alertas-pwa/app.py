@@ -314,6 +314,8 @@ def _resident_feed_relevant(row: sqlite3.Row) -> bool:
         "nenhuma pessoa visível",
         "nenhuma pessoa aparece",
         "sem movimento relevante",
+        "não há pessoas, animais",
+        "nenhum movimento humano, animal",
     )
     return not any(marker in description for marker in trivial_markers)
 
@@ -732,10 +734,19 @@ def events(limit: int = 50, device=Depends(current_device)):
             """SELECT e.*, d.name AS acknowledged_by_name
                FROM events e
                LEFT JOIN devices d ON d.id=e.acknowledged_by
-               ORDER BY COALESCE(occurred_at,received_at) DESC LIMIT ?""",
-            (limit,),
+               ORDER BY COALESCE(occurred_at,received_at) DESC LIMIT 300"""
         ).fetchall()
-    return [dict(row) for row in rows]
+
+    # Technical/empty motion is still retained in the database for audit, but
+    # does not belong in the operator's "O que a IA observou" activity feed.
+    selected = []
+    for row in rows:
+        if not _resident_feed_relevant(row):
+            continue
+        selected.append(dict(row))
+        if len(selected) >= limit:
+            break
+    return selected
 
 
 @app.post("/api/events/{event_id}/ack")

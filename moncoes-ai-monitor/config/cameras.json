@@ -184,7 +184,12 @@
           "person",
           "cat",
           "dog"
-        ]
+        ],
+        "prefilter_confidence_by_class": {
+          "person": 0.3,
+          "cat": 0.25,
+          "dog": 0.25
+        }
       },
       "2": {
         "name": "Área técnica / medidores",

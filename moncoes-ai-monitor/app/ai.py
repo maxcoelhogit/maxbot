@@ -61,6 +61,7 @@ REGRAS DE SEVERIDADE:
 - 'uncertain' é para evidência insuficiente ou ambígua que não se encaixe com segurança nos casos acima.
 - 'normal' é para atividade rotineira sem indício relevante.
 - Quando o movimento tiver sido acionado apenas por inseto, mudança de luz/sombra, porta do elevador abrindo/fechando sem pessoa, cenário vazio ou qualquer movimento sem pessoa, veículo, animal ou objeto relevante, use status 'normal' e categoria 'background_motion'. Esses eventos são técnicos e não devem ser apresentados aos moradores.
+- Na área destinada a bicicletas, bicicletas apenas estacionadas são cenário estático esperado. Se não houver pessoa, animal, deslocamento de bicicleta, acesso à sala de energia ou outra ação relevante, use status 'normal' e categoria 'background_motion'.
 
 Para interações humanas, aplique um limiar rigoroso para evitar falso positivo sensível:
 - Proximidade entre pessoas, abraço, toque breve em ombro/costas/braço, mãos próximas ao corpo, conversa, carinho ou contato social aparentemente calmo NÃO são, isoladamente, evidência de violência ou assédio. Classifique como 'normal' quando não houver outro sinal objetivo de risco.
