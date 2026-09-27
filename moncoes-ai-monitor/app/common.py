@@ -82,8 +82,61 @@ def db() -> sqlite3.Connection:
       fail_open INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(day,dvr,channel)
     );
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT NOT NULL,
+      stage TEXT NOT NULL,
+      model TEXT NOT NULL,
+      service_tier TEXT,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      reasoning_tokens INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_model_stage ON ai_usage(model,stage);
     """)
     return con
+
+
+def record_ai_usage(
+    *,
+    stage: str,
+    model: str,
+    service_tier: str | None,
+    input_tokens: int = 0,
+    cached_input_tokens: int = 0,
+    cache_write_tokens: int = 0,
+    output_tokens: int = 0,
+    reasoning_tokens: int = 0,
+) -> None:
+    """Store compact per-call API usage for cost auditing.
+
+    Telemetry is local only and contains no image, prompt or resident data.
+    """
+    with db() as con:
+        con.execute(
+            """
+            INSERT INTO ai_usage(
+              created_at,stage,model,service_tier,input_tokens,
+              cached_input_tokens,cache_write_tokens,output_tokens,
+              reasoning_tokens
+            ) VALUES(?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                now_local().isoformat(),
+                stage,
+                model,
+                service_tier,
+                int(input_tokens or 0),
+                int(cached_input_tokens or 0),
+                int(cache_write_tokens or 0),
+                int(output_tokens or 0),
+                int(reasoning_tokens or 0),
+            ),
+        )
+        con.commit()
 
 
 def record_prefilter_result(
