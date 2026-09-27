@@ -7,8 +7,11 @@ self.addEventListener("push",event=>{
     body:data.body,
     icon:"/icon.svg",
     badge:"/icon.svg",
-    tag:"moncoes-critical",
+    tag:"moncoes-alert-"+Date.now(),
     renotify:true,
+    requireInteraction:true,
+    silent:false,
+    vibrate:[800,250,800,250,1200],
     data:{url:data.url||"/"}
   }));
 });
