@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Monções Segurança">
+  <title>Monções Segurança</title>
+  <link rel="manifest" href="/seguranca/manifest.webmanifest">
+  <link rel="icon" href="/seguranca/icon.svg">
+  <link rel="apple-touch-icon" href="/seguranca/icon.svg">
+  <link rel="stylesheet" href="/static/resident/style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="/seguranca/icon.svg" alt="" class="brand-logo">
+        <div>
+          <div class="brand-name">Edifício Monções</div>
+          <div class="brand-sub">Segurança inteligente</div>
+        </div>
+      </div>
+      <span id="liveBadge" class="live-badge checking"><span class="pulse"></span>Verificando</span>
+    </header>
+
+    <section class="hero">
+      <div class="hero-kicker">MONITORAMENTO INTELIGENTE 24H</div>
+      <h1>Monções Segurança</h1>
+      <p>A IA acompanha as áreas monitoradas, analisa os eventos e encaminha exceções para a administração.</p>
+    </section>
+
+    <section id="pushCard" class="push-card">
+      <div class="push-icon" id="pushIcon">!</div>
+      <div class="push-copy">
+        <h2 id="pushTitle">Ative os alertas críticos</h2>
+        <p id="pushText">Receba no celular avisos de situações críticas identificadas pelo monitoramento.</p>
+      </div>
+      <button id="pushBtn" class="primary-btn">Ativar alertas</button>
+    </section>
+
+    <section class="status-grid">
+      <article class="status-card">
+        <span class="status-icon ok">✓</span>
+        <div>
+          <strong id="monitorTitle">Monitoramento IA</strong>
+          <span id="monitorText">Verificando sistema…</span>
+        </div>
+      </article>
+      <article class="status-card">
+        <span id="notificationCheck" class="status-icon neutral">•</span>
+        <div>
+          <strong>Alertas de segurança</strong>
+          <span id="notificationText">Ainda não ativados</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="metrics">
+      <article><strong id="metricAnalyzed">—</strong><span>eventos analisados hoje</span></article>
+      <article><strong id="metricReview">—</strong><span>encaminhados para revisão</span></article>
+      <article><strong id="metricCritical">—</strong><span>alertas críticos</span></article>
+    </section>
+
+    <section class="feed-section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">ATIVIDADE RECENTE</span>
+          <h2>O que a IA observou</h2>
+        </div>
+        <button id="refreshBtn" class="icon-btn" aria-label="Atualizar">↻</button>
+      </div>
+      <div id="events" class="event-list">
+        <div class="loading-card">Carregando eventos…</div>
+      </div>
+    </section>
+
+    <section class="setup-section">
+      <h2>Deixe como um app no seu celular</h2>
+      <p>Instale o Monções Segurança na tela inicial e mantenha as notificações permitidas.</p>
+      <div class="setup-actions">
+        <button id="installBtn" class="secondary-btn">Instalar aplicativo</button>
+        <button id="maxAlertBtn" class="text-btn">Configurar alerta máximo</button>
+        <button id="testBtn" class="text-btn hidden">Testar notificação</button>
+      </div>
+    </section>
+
+    <footer>
+      <p>O aplicativo público não exibe imagens, relatórios administrativos ou dados de identificação. A análise por IA apoia a gestão e não substitui a revisão humana.</p>
+    </footer>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <button id="closeModal" class="modal-close" aria-label="Fechar">×</button>
+      <h2 id="modalTitle">Configurar alerta máximo</h2>
+      <div id="modalBody"></div>
+      <button id="modalOk" class="primary-btn">Entendi</button>
+    </div>
+  </div>
+
+  <script src="/static/resident/app.js" defer></script>
+</body>
+</html>
