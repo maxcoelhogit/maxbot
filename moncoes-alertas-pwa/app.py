@@ -6,7 +6,7 @@ import json
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -282,6 +282,42 @@ def public_status_label(status: str | None) -> str:
     }.get(status or "", "Evento analisado pela IA")
 
 
+def _event_time_utc(row: sqlite3.Row) -> datetime | None:
+    value = row["occurred_at"] or row["received_at"]
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _resident_feed_relevant(row: sqlite3.Row) -> bool:
+    """Hide technical motion triggers that add noise to the public log."""
+    status = row["status"] or "uncertain"
+    category = row["category"] or ""
+    if status != "normal":
+        return True
+    if category == "background_motion":
+        return False
+
+    # Compatibility with events created before background_motion existed.
+    description = (row["description"] or "").lower()
+    trivial_markers = (
+        "visivelmente vazio",
+        "elevador vazio",
+        "sem pessoas, fumaça, objetos ou ações relevantes",
+        "sem pessoas ou ações relevantes",
+        "nenhuma pessoa visível",
+        "nenhuma pessoa aparece",
+        "sem movimento relevante",
+    )
+    return not any(marker in description for marker in trivial_markers)
+
+
 def public_event(row: sqlite3.Row) -> dict[str, Any]:
     """Return only resident-safe fields and soften sensitive human interactions.
 
@@ -343,7 +379,10 @@ def icon():
 
 @app.get("/seguranca/", response_class=HTMLResponse)
 def resident_index():
-    return (STATIC / "resident/index.html").read_text(encoding="utf-8")
+    return HTMLResponse(
+        (STATIC / "resident/index.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/seguranca/manifest.webmanifest")
@@ -359,7 +398,10 @@ def resident_service_worker():
     return FileResponse(
         STATIC / "resident/sw.js",
         media_type="application/javascript",
-        headers={"Service-Worker-Allowed": "/seguranca/"},
+        headers={
+            "Service-Worker-Allowed": "/seguranca/",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
     )
 
 
@@ -486,17 +528,29 @@ def public_status():
 
 @app.get("/public/api/events")
 def public_events(limit: int = 50):
-    limit = max(1, min(limit, 80))
+    """Resident feed: rolling 12-hour window, capped and noise-filtered."""
+    limit = max(1, min(limit, 60))
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
     with db() as con:
         rows = con.execute(
             """SELECT id,received_at,occurred_at,camera,status,category,description
                FROM events
                WHERE status IS NOT NULL
                ORDER BY COALESCE(occurred_at,received_at) DESC
-               LIMIT ?""",
-            (limit,),
+               LIMIT 300"""
         ).fetchall()
-    return [public_event(row) for row in rows]
+
+    selected = []
+    for row in rows:
+        event_dt = _event_time_utc(row)
+        if event_dt is not None and event_dt < cutoff:
+            continue
+        if not _resident_feed_relevant(row):
+            continue
+        selected.append(public_event(row))
+        if len(selected) >= limit:
+            break
+    return selected
 
 
 @app.post("/public/api/push/subscribe")
