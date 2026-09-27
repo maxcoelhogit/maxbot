@@ -41,5 +41,10 @@ jobs:
         run: |
           bash -n moncoes-ai-monitor/install.sh
           bash -n moncoes-ai-monitor/update.sh
+          bash -n moncoes-ai-monitor/ensure_prefilter_model.sh
       - name: Validate JavaScript
-        run: node --check moncoes-alertas-pwa/static/app.js
+        run: |
+          node --check moncoes-alertas-pwa/static/app.js
+          node --check moncoes-alertas-pwa/static/resident/app.js
+          node --check moncoes-alertas-pwa/static/sw.js
+          node --check moncoes-alertas-pwa/static/resident/sw.js
