@@ -214,16 +214,14 @@ def _call_with_fallback(
 
 
 def _needs_escalation(result: Analysis) -> bool:
+    # Terra is reserved for cases where a third opinion can materially improve
+    # safety. A high-quality Luna review that concludes "normal" no longer
+    # escalates merely because confidence is below an arbitrary threshold.
     if result.status in {"critical", "uncertain"}:
         return True
-    if result.status == "potential_occurrence" and result.category in SENSITIVE_CATEGORIES:
-        return True
-    if result.status == "potential_occurrence" and result.confidence < float(
-        os.getenv("MONCOES_AI_ESCALATE_CONFIDENCE", "0.82")
-    ):
-        return True
-    if result.status == "normal" and result.confidence < float(
-        os.getenv("MONCOES_AI_NORMAL_GUARD_CONFIDENCE", "0.78")
+    if (
+        result.status == "potential_occurrence"
+        and result.category in SENSITIVE_CATEGORIES
     ):
         return True
     return False
