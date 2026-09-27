@@ -45,6 +45,7 @@ DEBOUNCE = int(os.getenv("EVENT_DEBOUNCE_SECONDS", "90"))
 SECURITY_DEBOUNCE = int(os.getenv("SECURITY_EVENT_DEBOUNCE_SECONDS", "20"))
 POLL_MERGE_SECONDS = int(os.getenv("POLL_MERGE_SECONDS", "20"))
 POLL_SECONDS = int(os.getenv("DVR101_POLL_SECONDS", "300"))
+POLL_BACKFILL_MINUTES = int(os.getenv("POLL_BACKFILL_MINUTES", "120"))
 MODE = os.getenv("MONCOES_MODE", "observe")
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
 PORTAL_BASE_URL = os.getenv("PORTAL_BASE_URL", "").strip().rstrip("/")
@@ -98,11 +99,27 @@ def save_record(
     result = final or triage
     with db() as con:
         con.execute(
-            """INSERT OR IGNORE INTO events(
+            """INSERT INTO events(
                 event_key,created_at,dvr,channel,camera_name,started_at,ended_at,source,
                 priority,triage_status,final_status,confidence,category,description,
                 rule_reference,needs_human_review,evidence_path,ai_model,review_model,error
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(event_key) DO UPDATE SET
+                created_at=excluded.created_at,
+                ended_at=excluded.ended_at,
+                source=excluded.source,
+                priority=excluded.priority,
+                triage_status=excluded.triage_status,
+                final_status=excluded.final_status,
+                confidence=excluded.confidence,
+                category=excluded.category,
+                description=excluded.description,
+                rule_reference=excluded.rule_reference,
+                needs_human_review=excluded.needs_human_review,
+                evidence_path=excluded.evidence_path,
+                ai_model=excluded.ai_model,
+                review_model=excluded.review_model,
+                error=excluded.error""",
             (
                 key,
                 now_local().isoformat(),
@@ -161,14 +178,18 @@ def process_event(
 ):
     cam = camera(dvr, channel)
     if not cam or not cam.get("enabled", False):
-        return
+        return True
 
     key = event_key(dvr, channel, start)
     if event_exists_nearby(dvr, channel, start):
-        return
+        return True
 
     host = CAMERAS[dvr]["host"]
-    work = EVENT_DIR / start.strftime("%Y-%m-%d") / key.replace(":", "_")
+    work = (
+        EVENT_DIR
+        / start.strftime("%Y-%m-%d")
+        / f"{key.replace(':', '_')}_{source}_{threading.get_ident()}"
+    )
     sheet = work / "contact.jpg"
 
     try:
@@ -217,7 +238,7 @@ def process_event(
                 cam["name"],
                 decision.reason,
             )
-            return
+            return True
 
         log.info(
             "Pré-filtro liberou evento %s camera=%s labels=%s conf=%.2f motivo=%s",
@@ -309,12 +330,15 @@ def process_event(
                 }
             )
 
+        return True
+
     except Exception as exc:
         log.exception("Falha processando %s", key)
         save_record(
             key, dvr, channel, cam, start, end, source,
             None, None, None, str(exc)
         )
+        return False
     finally:
         safe_remove(work)
         with lock:
@@ -592,10 +616,11 @@ def poll_dvr(dvr: str):
         )
         start = max(
             start - timedelta(seconds=SECURITY_DEBOUNCE),
-            now - timedelta(minutes=20),
+            now - timedelta(minutes=POLL_BACKFILL_MINUTES),
         )
 
         found_total = 0
+        all_ok = True
         for channel_text, cam in CAMERAS[dvr]["channels"].items():
             if not cam.get("enabled", False):
                 continue
@@ -604,14 +629,16 @@ def poll_dvr(dvr: str):
                 events = search_motion(host, channel, start, now)
                 found_total += len(events)
                 for event_start, event_end in events:
-                    process_event(
+                    if not process_event(
                         dvr,
                         channel,
                         event_start,
                         event_end,
                         "poll",
-                    )
+                    ):
+                        all_ok = False
             except Exception as exc:
+                all_ok = False
                 log.warning(
                     "Reconciliação DVR%s cam%s falhou: %s",
                     dvr,
@@ -619,7 +646,13 @@ def poll_dvr(dvr: str):
                     exc,
                 )
 
-        set_state(state_key, now.isoformat())
+        if all_ok:
+            set_state(state_key, now.isoformat())
+        else:
+            log.warning(
+                "Reconciliação DVR%s incompleta; watermark preservado para nova tentativa",
+                dvr,
+            )
         if found_total:
             log.info(
                 "Reconciliação DVR%s encontrou %s grupo(s) de movimento",
