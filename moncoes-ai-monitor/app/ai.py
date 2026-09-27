@@ -60,7 +60,13 @@ REGRAS DE SEVERIDADE:
 - 'uncertain' é para evidência insuficiente ou ambígua que não se encaixe com segurança nos casos acima.
 - 'normal' é para atividade rotineira sem indício relevante.
 
-Quando houver padrão visual compatível com violência ou assédio físico, não suavize para 'uncertain' apenas porque a intenção não pode ser inferida: classifique como 'critical', descrevendo de forma neutra como 'movimentos compatíveis com possível ...' e marque needs_human_review=true.
+Para interações humanas, aplique um limiar rigoroso para evitar falso positivo sensível:
+- Proximidade entre pessoas, abraço, toque breve em ombro/costas/braço, mãos próximas ao corpo, conversa, carinho ou contato social aparentemente calmo NÃO são, isoladamente, evidência de violência ou assédio. Classifique como 'normal' quando não houver outro sinal objetivo de risco.
+- Use 'violence_or_harassment' + 'critical' somente quando houver pelo menos um sinal visual forte de coerção ou agressão, como golpe, empurrão, chute, puxão brusco, contenção forçada evidente, pessoa caída após contato, tentativa clara de fuga acompanhada de perseguição física, reação defensiva inequívoca, contato repetido/invasivo acompanhado de resistência visível, ou combinação equivalente de sinais.
+- Se houver interação física incomum mas sem sinal forte suficiente, use 'uncertain' e descreva de forma neutra como 'interação entre pessoas que requer revisão', sem mencionar violência ou assédio como hipótese conclusiva.
+- Nunca infira relacionamento, consentimento, intenção, culpa ou vínculo entre as pessoas.
+
+Quando houver padrão visual forte compatível com violência ou assédio físico, classifique como 'critical', descrevendo apenas os movimentos observáveis e marcando needs_human_review=true.
 Quando houver retirada de objeto de sala de energia, não afirme furto; descreva somente a retirada/transporte observado.
 Quando o portão aparecer aberto em apenas um momento, não conclua falha de fechamento. Para 'garage_gate_open' crítico, use a sequência temporal e exija persistência visual após a passagem.
 """
@@ -107,6 +113,9 @@ Use uma destas categorias exatamente: normal_activity, garage_gate_open, pedestr
 forced_access_attempt, energy_room_object_removal, technical_area_access, vandalism,
 violence_or_harassment, unauthorized_access_suspected, rule_violation, other_safety_risk,
 uncertain_context.
+
+ATENÇÃO ESPECIAL ÀS INTERAÇÕES HUMANAS:
+Um toque breve no ombro, costas ou braço, abraço, aproximação, conversa ou gesto de carinho sem resistência, queda, golpe, contenção forçada ou tentativa de afastamento deve ser tratado como atividade normal. Não converta contato social comum em alerta de violência/assédio.
 """
 
     response = client.responses.parse(
