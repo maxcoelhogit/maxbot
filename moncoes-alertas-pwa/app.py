@@ -82,6 +82,15 @@ def db() -> sqlite3.Connection:
           FOREIGN KEY(device_id) REFERENCES devices(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS resident_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          endpoint TEXT UNIQUE NOT NULL,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS events (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           event_key TEXT UNIQUE NOT NULL,
@@ -130,6 +139,10 @@ class RegisterBody(BaseModel):
 class SubscriptionBody(BaseModel):
     endpoint: str
     keys: dict[str, str]
+
+
+class PublicPushTest(BaseModel):
+    endpoint: str
 
 
 class IngestEvent(BaseModel):
@@ -220,7 +233,69 @@ def send_push(title: str, body: str, url: str = "/") -> int:
     return sent
 
 
-app = FastAPI(title="Monções Alertas", version="1.0")
+def send_resident_push(title: str, body: str, url: str = "/seguranca/") -> int:
+    """Send a public safety notification to anonymous resident subscriptions."""
+    if not (VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY):
+        return 0
+    payload = json.dumps({"title": title, "body": body, "url": url})
+    sent = 0
+    stale: list[int] = []
+    with db() as con:
+        rows = con.execute(
+            "SELECT * FROM resident_subscriptions"
+        ).fetchall()
+        for row in rows:
+            try:
+                webpush(
+                    subscription_info={
+                        "endpoint": row["endpoint"],
+                        "keys": {
+                            "p256dh": row["p256dh"],
+                            "auth": row["auth"],
+                        },
+                    },
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": VAPID_SUBJECT},
+                    ttl=300,
+                    timeout=15,
+                )
+                sent += 1
+            except WebPushException as exc:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status in (404, 410):
+                    stale.append(row["id"])
+            except Exception:
+                pass
+        for sid in stale:
+            con.execute("DELETE FROM resident_subscriptions WHERE id=?", (sid,))
+        con.commit()
+    return sent
+
+
+def public_status_label(status: str | None) -> str:
+    return {
+        "normal": "Analisado pela IA · Sem ação necessária",
+        "uncertain": "Evento encaminhado para revisão",
+        "potential_occurrence": "Potencial ocorrência encaminhada para revisão",
+        "critical": "Alerta crítico emitido · Administração notificada",
+    }.get(status or "", "Evento analisado pela IA")
+
+
+def public_event(row: sqlite3.Row) -> dict[str, Any]:
+    """Only fields intentionally safe for the resident-facing application."""
+    return {
+        "id": row["id"],
+        "occurred_at": row["occurred_at"] or row["received_at"],
+        "location": row["camera"] or "Área monitorada",
+        "status": row["status"] or "uncertain",
+        "status_label": public_status_label(row["status"]),
+        "category": row["category"] or "",
+        "description": row["description"] or "Evento analisado pela IA.",
+    }
+
+
+app = FastAPI(title="Monções Alertas", version="1.1")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
@@ -247,6 +322,33 @@ def service_worker():
 @app.get("/icon.svg")
 def icon():
     return FileResponse(STATIC / "icon.svg", media_type="image/svg+xml")
+
+
+@app.get("/seguranca/", response_class=HTMLResponse)
+def resident_index():
+    return (STATIC / "resident/index.html").read_text(encoding="utf-8")
+
+
+@app.get("/seguranca/manifest.webmanifest")
+def resident_manifest():
+    return FileResponse(
+        STATIC / "resident/manifest.webmanifest",
+        media_type="application/manifest+json",
+    )
+
+
+@app.get("/seguranca/sw.js")
+def resident_service_worker():
+    return FileResponse(
+        STATIC / "resident/sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/seguranca/"},
+    )
+
+
+@app.get("/seguranca/icon.svg")
+def resident_icon():
+    return FileResponse(STATIC / "resident/icon.svg", media_type="image/svg+xml")
 
 
 @app.get("/api/config")
@@ -305,6 +407,131 @@ def subscribe(body: SubscriptionBody, device=Depends(current_device)):
             (device["id"], body.endpoint, p256dh, auth, now_iso(), now_iso()),
         )
         con.commit()
+    return {"ok": True}
+
+
+@app.get("/public/api/config")
+def public_config():
+    return {"vapid_public_key": VAPID_PUBLIC_KEY}
+
+
+@app.get("/public/api/status")
+def public_status():
+    with db() as con:
+        health_row = con.execute(
+            "SELECT * FROM health WHERE singleton=1"
+        ).fetchone()
+        today = datetime.now().astimezone().date().isoformat()
+        counts = con.execute(
+            """SELECT
+                 COUNT(*) AS total,
+                 SUM(CASE WHEN status='critical' THEN 1 ELSE 0 END) AS critical,
+                 SUM(CASE WHEN status IN ('potential_occurrence','uncertain')
+                          THEN 1 ELSE 0 END) AS review
+               FROM events
+               WHERE substr(COALESCE(occurred_at,received_at),1,10)=?""",
+            (today,),
+        ).fetchone()
+
+    healthy = False
+    last_update = None
+    if health_row:
+        last_update = health_row["received_at"]
+        try:
+            payload = json.loads(health_row["payload"])
+            healthy = bool(payload.get("healthy"))
+        except Exception:
+            healthy = False
+
+    return {
+        "monitor_active": healthy,
+        "last_update": last_update,
+        "today": {
+            "analyzed": int(counts["total"] or 0),
+            "sent_for_review": int(counts["review"] or 0),
+            "critical": int(counts["critical"] or 0),
+        },
+    }
+
+
+@app.get("/public/api/events")
+def public_events(limit: int = 50):
+    limit = max(1, min(limit, 80))
+    with db() as con:
+        rows = con.execute(
+            """SELECT id,received_at,occurred_at,camera,status,category,description
+               FROM events
+               WHERE status IS NOT NULL
+               ORDER BY COALESCE(occurred_at,received_at) DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [public_event(row) for row in rows]
+
+
+@app.post("/public/api/push/subscribe")
+def public_subscribe(body: SubscriptionBody):
+    p256dh = body.keys.get("p256dh", "")
+    auth = body.keys.get("auth", "")
+    if not body.endpoint or not p256dh or not auth:
+        raise HTTPException(status_code=400, detail="subscription incompleta")
+    with db() as con:
+        con.execute(
+            """INSERT INTO resident_subscriptions(
+                 endpoint,p256dh,auth,created_at,updated_at
+               ) VALUES(?,?,?,?,?)
+               ON CONFLICT(endpoint) DO UPDATE SET
+                 p256dh=excluded.p256dh,
+                 auth=excluded.auth,
+                 updated_at=excluded.updated_at""",
+            (body.endpoint, p256dh, auth, now_iso(), now_iso()),
+        )
+        con.commit()
+    return {"ok": True}
+
+
+@app.post("/public/api/push/test")
+def public_test_push(body: PublicPushTest):
+    if not (VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY):
+        raise HTTPException(status_code=503, detail="Web Push não configurado")
+    with db() as con:
+        row = con.execute(
+            "SELECT * FROM resident_subscriptions WHERE endpoint=?",
+            (body.endpoint,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="Ative os alertas neste aparelho antes de testar.",
+        )
+    try:
+        webpush(
+            subscription_info={
+                "endpoint": row["endpoint"],
+                "keys": {"p256dh": row["p256dh"], "auth": row["auth"]},
+            },
+            data=json.dumps(
+                {
+                    "title": "✓ Monções Segurança",
+                    "body": "Alertas críticos estão ativados neste aparelho.",
+                    "url": "/seguranca/",
+                }
+            ),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": VAPID_SUBJECT},
+            ttl=300,
+            timeout=15,
+        )
+    except WebPushException as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in (404, 410):
+            with db() as con:
+                con.execute(
+                    "DELETE FROM resident_subscriptions WHERE id=?",
+                    (row["id"],),
+                )
+                con.commit()
+        raise HTTPException(status_code=502, detail="Falha ao entregar notificação")
     return {"ok": True}
 
 
@@ -510,6 +737,7 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
         event_id = cur.lastrowid
 
     push_sent = 0
+    resident_push_sent = 0
     if body.notify_external:
         location = body.camera or "área monitorada"
         if body.status == "critical":
@@ -522,6 +750,21 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
                 f"{location}. Toque para abrir os detalhes e revisar imediatamente.",
                 f"/?event={event_id}",
             )
+            public_title = {
+                "garage_gate_open": "🚨 Portão de garagem aberto",
+                "forced_access_attempt": "🚨 Possível tentativa de acesso forçado",
+                "energy_room_object_removal": "🚨 Alerta na sala de energia",
+                "vandalism": "🚨 Possível vandalismo",
+                "violence_or_harassment": "🚨 Possível violência ou assédio",
+            }.get(body.category or "", "🚨 Alerta crítico de segurança")
+            description = (body.description or "Situação crítica detectada pela IA.").strip()
+            if len(description) > 180:
+                description = description[:177] + "..."
+            resident_push_sent = send_resident_push(
+                public_title,
+                f"{location}: {description}",
+                f"/seguranca/?event={event_id}",
+            )
         elif (
             body.status in {"potential_occurrence", "uncertain"}
             and (body.category or "") in REVIEW_TITLES
@@ -531,7 +774,13 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
                 f"{location}. Situação registrada para revisão humana.",
                 f"/?event={event_id}",
             )
-    return {"ok": True, "id": event_id, "duplicate": False, "push_sent": push_sent}
+    return {
+        "ok": True,
+        "id": event_id,
+        "duplicate": False,
+        "push_sent": push_sent,
+        "resident_push_sent": resident_push_sent,
+    }
 
 
 @app.post("/api/ingest/health")
