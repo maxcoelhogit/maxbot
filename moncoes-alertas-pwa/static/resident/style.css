@@ -133,9 +133,31 @@ button{font:inherit}.hidden{display:none!important}
 .push-card.enabled .push-icon{background:#fff;color:var(--green)}
 .push-copy h2{margin:0;font-size:16px}
 .push-copy p{margin:4px 0 0;font-size:11.5px;line-height:1.45;color:rgba(255,255,255,.8)}
+.push-actions{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
 .primary-btn,.modal-primary{
-  grid-column:1/-1;border:0;border-radius:12px;background:#fff;color:var(--ink);
+  border:0;border-radius:12px;background:#fff;color:var(--ink);
   font-weight:900;padding:11px 14px;cursor:pointer
+}
+.max-alert-btn{
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:12px;
+  background:rgba(255,255,255,.09);
+  color:#fff;
+  font-weight:850;
+  padding:11px 12px;
+  cursor:pointer;
+}
+.push-note{
+  grid-column:1/-1;
+  margin:0;
+  font-size:9.7px;
+  line-height:1.4;
+  color:rgba(255,255,255,.67);
 }
 .primary-btn:disabled{opacity:.88;cursor:default}
 
@@ -277,4 +299,5 @@ footer p{font-size:9.5px;color:#9b9089;line-height:1.45;text-align:center;paddin
   .identity-row{align-items:flex-start}
   .product-sub{max-width:220px}
   .tab{font-size:9.5px;padding:8px 2px}
+  .push-actions{grid-template-columns:1fr}
 }
