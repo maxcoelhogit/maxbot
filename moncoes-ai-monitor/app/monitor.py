@@ -261,6 +261,41 @@ def schedule_realtime(dvr: str, index: int):
     ).start()
 
 
+def schedule_listener_stop(dvr: str, index: int):
+    """Fallback para firmwares que notificam apenas VideoMotion Stop.
+
+    Usa playback dos segundos anteriores ao Stop, preservando a evidência
+    do evento em vez de capturar apenas o cenário já encerrado.
+    """
+    channel = index + 1
+    cam = camera(dvr, channel)
+    if not cam or not cam.get("enabled", False):
+        return
+
+    current = time.time()
+    key = (dvr, channel)
+    with lock:
+        if key in processing:
+            return
+        if current - last_event.get(key, 0) < DEBOUNCE:
+            return
+        last_event[key] = current
+        processing.add(key)
+
+    end = now_local()
+    start = end - timedelta(seconds=20)
+
+    def delayed():
+        # Pequeno atraso para o DVR finalizar o arquivo de evento.
+        if STOP.wait(3):
+            with lock:
+                processing.discard(key)
+            return
+        process_event(dvr, channel, start, end, "listener_stop")
+
+    threading.Thread(target=delayed, daemon=True).start()
+
+
 def listener_dvr100():
     host = CAMERAS["100"]["host"]
     url = (
@@ -289,11 +324,16 @@ def listener_dvr100():
                     else:
                         line = str(raw or "").strip()
                     match = re.search(
-                        r"Code=VideoMotion;action=Start;index=(\d+)",
+                        r"Code=VideoMotion;action=(Start|Stop);index=(\d+)",
                         line,
                     )
                     if match:
-                        schedule_realtime("100", int(match.group(1)))
+                        action = match.group(1)
+                        index = int(match.group(2))
+                        if action == "Start":
+                            schedule_realtime("100", index)
+                        else:
+                            schedule_listener_stop("100", index)
         except Exception as exc:
             log.warning(
                 "Listener DVR100 caiu: %s; nova tentativa em %ss",
@@ -334,19 +374,27 @@ def search_motion(
     events: list[tuple[datetime, datetime]] = []
 
     try:
-        result = api_get(
-            host,
-            {
-                "action": "findFile",
-                "object": obj,
-                "condition.Channel": physical_channel,
-                "condition.StartTime": start.strftime("%Y-%m-%d %H:%M:%S"),
-                "condition.EndTime": end.strftime("%Y-%m-%d %H:%M:%S"),
-                "condition.Types[0]": "dav",
-                "condition.Flags[0]": "Event",
-                "condition.Events[0]": "VideoMotion",
-            },
-        )
+        try:
+            result = api_get(
+                host,
+                {
+                    "action": "findFile",
+                    "object": obj,
+                    "condition.Channel": physical_channel,
+                    "condition.StartTime": start.strftime("%Y-%m-%d %H:%M:%S"),
+                    "condition.EndTime": end.strftime("%Y-%m-%d %H:%M:%S"),
+                    "condition.Types[0]": "dav",
+                    "condition.Flags[0]": "Event",
+                    "condition.Events[0]": "VideoMotion",
+                },
+            )
+        except requests.HTTPError as exc:
+            # Estes DVRs retornam HTTP 400 quando a janela/canal não tem
+            # arquivos de movimento correspondentes. Isso não é falha do
+            # monitor; a próxima janela será consultada normalmente.
+            if exc.response is not None and exc.response.status_code == 400:
+                return []
+            raise
         if "OK" not in result:
             return []
 
