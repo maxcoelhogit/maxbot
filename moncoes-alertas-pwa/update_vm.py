@@ -126,13 +126,21 @@ def main():
         raise SystemExit(1)
 
     paths = spec.get("paths", {})
-    expected = ["/api/push/test", "/api/reports/{report_id}/link"]
+    expected = [
+        "/api/push/test",
+        "/api/reports/{report_id}/link",
+        "/seguranca/",
+        "/public/api/status",
+        "/public/api/events",
+        "/public/api/push/subscribe",
+        "/public/api/push/test",
+    ]
     absent = [p for p in expected if p not in paths]
     if absent:
         print("ERRO: rotas ausentes apos update:", ", ".join(absent))
         raise SystemExit(1)
 
-    print("Rotas novas verificadas: /api/push/test e /api/reports/{report_id}/link")
+    print("Rotas verificadas: administrativo + Moncoes Seguranca publico")
 
     print("Atualizacao concluida com sucesso.")
 
