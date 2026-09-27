@@ -50,18 +50,13 @@
         "capture_seconds": 16,
         "prefilter_classes": [
           "person",
-          "bicycle",
-          "car",
-          "motorcycle",
-          "bus",
-          "truck",
           "cat",
           "dog"
         ],
         "prefilter_confidence": 0.14,
         "prefilter_gate_watch": true,
         "prefilter_gate_motion_threshold": 0.03,
-        "prefilter_vehicle_requires_gate_change": true
+        "prefilter_gate_reference_threshold": 0.012
       },
       "4": {
         "name": "Garagem interna",
@@ -79,17 +74,9 @@
         "prefilter_confidence": 0.15,
         "prefilter_classes": [
           "person",
-          "bicycle",
-          "car",
-          "motorcycle",
-          "bus",
-          "truck",
           "cat",
           "dog"
-        ],
-        "prefilter_vehicle_min_area": 0.03,
-        "prefilter_gate_watch": true,
-        "prefilter_gate_motion_threshold": 0.035
+        ]
       },
       "5": {
         "name": "Hall do elevador / térreo",
@@ -106,7 +93,6 @@
         "prefilter_confidence": 0.14,
         "prefilter_classes": [
           "person",
-          "bicycle",
           "cat",
           "dog"
         ]
@@ -127,10 +113,12 @@
         "prefilter_confidence": 0.14,
         "prefilter_classes": [
           "person",
-          "bicycle",
           "cat",
           "dog"
-        ]
+        ],
+        "prefilter_gate_watch": true,
+        "prefilter_gate_motion_threshold": 0.03,
+        "prefilter_gate_reference_threshold": 0.012
       },
       "7": {
         "name": "Garagem interna - área ampla",
@@ -148,17 +136,9 @@
         "prefilter_confidence": 0.15,
         "prefilter_classes": [
           "person",
-          "bicycle",
-          "car",
-          "motorcycle",
-          "bus",
-          "truck",
           "cat",
           "dog"
-        ],
-        "prefilter_vehicle_min_area": 0.03,
-        "prefilter_gate_watch": true,
-        "prefilter_gate_motion_threshold": 0.035
+        ]
       },
       "8": {
         "name": "Garagem interna - outro ângulo",
@@ -176,17 +156,9 @@
         "prefilter_confidence": 0.15,
         "prefilter_classes": [
           "person",
-          "bicycle",
-          "car",
-          "motorcycle",
-          "bus",
-          "truck",
           "cat",
           "dog"
-        ],
-        "prefilter_vehicle_min_area": 0.03,
-        "prefilter_gate_watch": true,
-        "prefilter_gate_motion_threshold": 0.035
+        ]
       }
     }
   },
@@ -210,7 +182,6 @@
         "prefilter_confidence": 0.14,
         "prefilter_classes": [
           "person",
-          "bicycle",
           "cat",
           "dog"
         ]
@@ -246,7 +217,6 @@
         "prefilter_confidence": 0.14,
         "prefilter_classes": [
           "person",
-          "bicycle",
           "cat",
           "dog"
         ]
