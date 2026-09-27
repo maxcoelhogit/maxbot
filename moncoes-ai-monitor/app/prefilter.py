@@ -103,17 +103,113 @@ def _threshold(cam: dict) -> float:
     return 0.18
 
 
+VEHICLE_LABELS = {"car", "motorcycle", "bus", "truck"}
+
+
 def _allowed_labels(cam: dict) -> set[str]:
     configured = cam.get("prefilter_classes")
     if configured:
-        return {str(label).strip().lower() for label in configured if str(label).strip()}
+        return {
+            str(label).strip().lower()
+            for label in configured
+            if str(label).strip()
+        }
     return set(RELEVANT_CLASSES.values())
 
 
 def _always_analyze(cam: dict) -> bool:
-    # A câmera principal do portão pode precisar de análise mesmo quando o
-    # veículo já saiu do quadro, pois o estado final do portão é relevante.
     return bool(cam.get("prefilter_always_analyze", False))
+
+
+def _vehicle_min_area(cam: dict) -> float:
+    value = cam.get("prefilter_vehicle_min_area")
+    if value is None:
+        return 0.0
+    return max(0.0, min(float(value), 0.50))
+
+
+def _gate_watch(cam: dict) -> bool:
+    return bool(cam.get("prefilter_gate_watch", False))
+
+
+def _gate_motion_threshold(cam: dict) -> float:
+    value = cam.get("prefilter_gate_motion_threshold", 0.035)
+    return max(0.005, min(float(value), 0.30))
+
+
+def _expanded_box(
+    box: tuple[int, int, int, int],
+    width: int,
+    height: int,
+    pad_ratio: float = 0.08,
+) -> tuple[int, int, int, int]:
+    x1, y1, x2, y2 = box
+    bw = max(1, x2 - x1)
+    bh = max(1, y2 - y1)
+    px = int(bw * pad_ratio)
+    py = int(bh * pad_ratio)
+    return (
+        max(0, x1 - px),
+        max(0, y1 - py),
+        min(width, x2 + px),
+        min(height, y2 + py),
+    )
+
+
+def _gate_scene_changed(
+    images: list,
+    dynamic_boxes: list[list[tuple[int, int, int, int]]],
+    threshold: float,
+) -> tuple[bool, float]:
+    """Detect structural scene change while masking people/vehicles/animals.
+
+    This is intentionally conservative and is only enabled on a gate camera.
+    Passing cars are masked before comparison, so a vehicle moving along the
+    street should not by itself trigger OpenAI. A gate opening/closing changes
+    the static scene and remains visible outside those object boxes.
+    """
+    import cv2
+    import numpy as np
+
+    if len(images) < 2:
+        return False, 0.0
+
+    first = images[0]
+    last = images[-1]
+    if first is None or last is None:
+        return False, 0.0
+
+    h, w = first.shape[:2]
+    if last.shape[:2] != (h, w):
+        last = cv2.resize(last, (w, h))
+
+    gray_a = cv2.cvtColor(first, cv2.COLOR_BGR2GRAY)
+    gray_b = cv2.cvtColor(last, cv2.COLOR_BGR2GRAY)
+    gray_a = cv2.GaussianBlur(gray_a, (7, 7), 0)
+    gray_b = cv2.GaussianBlur(gray_b, (7, 7), 0)
+
+    valid = np.ones((h, w), dtype=np.uint8)
+    for box_set in (dynamic_boxes[0], dynamic_boxes[-1]):
+        for box in box_set:
+            x1, y1, x2, y2 = _expanded_box(box, w, h)
+            valid[y1:y2, x1:x2] = 0
+
+    # Ignore a thin border where compression / timestamp overlays often live.
+    border_x = max(2, int(w * 0.02))
+    border_y = max(2, int(h * 0.02))
+    valid[:border_y, :] = 0
+    valid[-border_y:, :] = 0
+    valid[:, :border_x] = 0
+    valid[:, -border_x:] = 0
+
+    diff = cv2.absdiff(gray_a, gray_b)
+    changed = (diff >= 28).astype(np.uint8)
+    valid_pixels = int(valid.sum())
+    if valid_pixels <= 0:
+        return False, 0.0
+
+    ratio = float((changed * valid).sum()) / float(valid_pixels)
+    return ratio >= threshold, ratio
 
 
 def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
@@ -148,14 +244,23 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
         net = _load_net()
         threshold = _threshold(cam)
         allowed_labels = _allowed_labels(cam)
+        vehicle_min_area = _vehicle_min_area(cam)
         labels: dict[str, float] = {}
+        images = []
+        dynamic_boxes: list[list[tuple[int, int, int, int]]] = []
 
         # Four temporal frames are already captured for the AI pipeline.
         # Reuse them so the prefilter adds no extra RTSP traffic.
         for path in frames[:4]:
             image = cv2.imread(str(path))
+            images.append(image)
+            frame_boxes: list[tuple[int, int, int, int]] = []
+            dynamic_boxes.append(frame_boxes)
             if image is None:
                 continue
+
+            height, width = image.shape[:2]
+            frame_area = max(1, width * height)
 
             blob = cv2.dnn.blobFromImage(
                 image,
@@ -179,10 +284,31 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
                 confidence = float(detection[2])
                 if confidence < threshold:
                     continue
+
                 class_id = int(detection[1])
                 label = RELEVANT_CLASSES.get(class_id)
-                if not label or label not in allowed_labels:
+                if not label:
                     continue
+
+                x1 = max(0, min(width, int(float(detection[3]) * width)))
+                y1 = max(0, min(height, int(float(detection[4]) * height)))
+                x2 = max(0, min(width, int(float(detection[5]) * width)))
+                y2 = max(0, min(height, int(float(detection[6]) * height)))
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                frame_boxes.append((x1, y1, x2, y2))
+
+                if label not in allowed_labels:
+                    continue
+
+                if label in VEHICLE_LABELS and vehicle_min_area > 0:
+                    area_ratio = ((x2 - x1) * (y2 - y1)) / float(frame_area)
+                    if area_ratio < vehicle_min_area:
+                        # Usually a distant vehicle seen through the street
+                        # portion of an internal camera.
+                        continue
+
                 labels[label] = max(labels.get(label, 0.0), confidence)
 
         if labels:
@@ -194,12 +320,52 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
                     reverse=True,
                 )
             )
+
+            # On the gate camera, vehicles alone are not enough: a car simply
+            # passing along the street should be ignored. People always pass.
+            if _gate_watch(cam) and not any(
+                label in {"person", "bicycle", "cat", "dog"}
+                for label in ordered
+            ):
+                changed, ratio = _gate_scene_changed(
+                    images,
+                    dynamic_boxes,
+                    _gate_motion_threshold(cam),
+                )
+                if changed:
+                    return PrefilterDecision(
+                        True,
+                        labels=ordered,
+                        max_confidence=max(labels.values()),
+                        reason=f"gate_scene_changed:{ratio:.4f}",
+                    )
+                return PrefilterDecision(
+                    False,
+                    labels=ordered,
+                    max_confidence=max(labels.values()),
+                    reason=f"street_vehicle_without_gate_change:{ratio:.4f}",
+                )
+
             return PrefilterDecision(
                 True,
                 labels=ordered,
                 max_confidence=max(labels.values()),
                 reason="relevant_object_detected",
             )
+
+        if _gate_watch(cam):
+            changed, ratio = _gate_scene_changed(
+                images,
+                dynamic_boxes,
+                _gate_motion_threshold(cam),
+            )
+            if changed:
+                return PrefilterDecision(
+                    True,
+                    labels=(),
+                    max_confidence=0.0,
+                    reason=f"gate_scene_changed_without_object:{ratio:.4f}",
+                )
 
         return PrefilterDecision(
             False,
