@@ -6,6 +6,7 @@ import pwd
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PKG = Path(__file__).resolve().parent
@@ -85,21 +86,53 @@ def main():
     run(["systemctl", "start", "moncoes-alertas.service"])
     run(["systemctl", "restart", "caddy"], check=False)
 
-    # Verify that the new endpoints really exist.
+    # Verify that the new endpoints really exist. Uvicorn may need a few
+    # seconds after systemd reports the service as started, especially on
+    # the small e2-micro VM.
     import urllib.request
     import json
-    try:
-        with urllib.request.urlopen("http://127.0.0.1:8088/openapi.json", timeout=5) as r:
-            spec = json.loads(r.read().decode())
-        paths = spec.get("paths", {})
-        expected = ["/api/push/test", "/api/reports/{report_id}/link"]
-        absent = [p for p in expected if p not in paths]
-        if absent:
-            raise RuntimeError("Rotas ausentes apos update: " + ", ".join(absent))
-        print("Rotas novas verificadas: /api/push/test e /api/reports/{report_id}/link")
-    except Exception as exc:
-        print("ERRO na verificacao das rotas:", exc)
-        raise
+
+    spec = None
+    last_exc = None
+    for attempt in range(1, 21):
+        try:
+            with urllib.request.urlopen(
+                "http://127.0.0.1:8088/openapi.json",
+                timeout=3,
+            ) as r:
+                spec = json.loads(r.read().decode())
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 20:
+                time.sleep(1)
+
+    if spec is None:
+        print("ERRO: o servico nao ficou pronto apos 20 segundos:", last_exc)
+        run(
+            [
+                "systemctl", "--no-pager", "--full",
+                "status", "moncoes-alertas.service",
+            ],
+            check=False,
+        )
+        run(
+            [
+                "journalctl", "-u", "moncoes-alertas.service",
+                "-n", "80", "--no-pager",
+            ],
+            check=False,
+        )
+        raise SystemExit(1)
+
+    paths = spec.get("paths", {})
+    expected = ["/api/push/test", "/api/reports/{report_id}/link"]
+    absent = [p for p in expected if p not in paths]
+    if absent:
+        print("ERRO: rotas ausentes apos update:", ", ".join(absent))
+        raise SystemExit(1)
+
+    print("Rotas novas verificadas: /api/push/test e /api/reports/{report_id}/link")
 
     print("Atualizacao concluida com sucesso.")
 
