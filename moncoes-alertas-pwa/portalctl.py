@@ -49,11 +49,16 @@ def main():
         con = sqlite3.connect(DB)
         con.row_factory = sqlite3.Row
         rows = con.execute(
-            "SELECT id,name,created_at,last_seen_at,revoked FROM devices ORDER BY id"
+            """SELECT d.id,d.name,d.created_at,d.last_seen_at,d.revoked,
+                      COUNT(s.id) AS push_subscriptions
+               FROM devices d
+               LEFT JOIN subscriptions s ON s.device_id=d.id
+               GROUP BY d.id,d.name,d.created_at,d.last_seen_at,d.revoked
+               ORDER BY d.id"""
         ).fetchall()
-        print("id | nome | criado | ultimo acesso | revogado")
+        print("id | nome | push | criado | ultimo acesso | revogado")
         for r in rows:
-            print(f"{r['id']} | {r['name']} | {r['created_at']} | {r['last_seen_at']} | {r['revoked']}")
+            print(f"{r['id']} | {r['name']} | {r['push_subscriptions']} | {r['created_at']} | {r['last_seen_at']} | {r['revoked']}")
     elif cmd == "revoke":
         need_root()
         if len(sys.argv) < 3:
