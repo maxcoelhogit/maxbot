@@ -321,12 +321,50 @@ def schedule_listener_stop(dvr: str, index: int):
     start = end - timedelta(seconds=20)
 
     def delayed():
-        # Pequeno atraso para o DVR finalizar o arquivo de evento.
-        if STOP.wait(3):
+        # Aguarda o DVR finalizar/indexar o arquivo e usa os tempos reais
+        # retornados pelo mediaFileFind. Alguns firmwares retornam 404 quando
+        # playback é solicitado com uma janela arbitrária.
+        if STOP.wait(8):
             with lock:
                 processing.discard(key)
             return
-        process_event(dvr, channel, start, end, "listener_stop")
+
+        try:
+            host = CAMERAS[dvr]["host"]
+            candidates = search_motion(
+                host,
+                channel,
+                end - timedelta(seconds=90),
+                end + timedelta(seconds=5),
+            )
+            if candidates:
+                actual_start, actual_end = candidates[-1]
+                # process_event fará o discard de processing no finally.
+                process_event(
+                    dvr,
+                    channel,
+                    actual_start,
+                    actual_end,
+                    "listener_stop",
+                )
+                return
+
+            log.info(
+                "VideoMotion Stop DVR%s cam%s sem playback indexado; "
+                "reconciliação periódica fará nova tentativa",
+                dvr,
+                channel,
+            )
+        except Exception as exc:
+            log.warning(
+                "Fallback VideoMotion Stop DVR%s cam%s falhou: %s",
+                dvr,
+                channel,
+                exc,
+            )
+
+        with lock:
+            processing.discard(key)
 
     threading.Thread(target=delayed, daemon=True).start()
 
