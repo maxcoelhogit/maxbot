@@ -72,8 +72,52 @@ def db() -> sqlite3.Connection:
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS prefilter_stats (
+      day TEXT NOT NULL,
+      dvr TEXT NOT NULL,
+      channel INTEGER NOT NULL,
+      received INTEGER NOT NULL DEFAULT 0,
+      passed INTEGER NOT NULL DEFAULT 0,
+      skipped INTEGER NOT NULL DEFAULT 0,
+      fail_open INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(day,dvr,channel)
+    );
     """)
     return con
+
+
+def record_prefilter_result(
+    dvr: str,
+    channel: int,
+    *,
+    passed: bool,
+    fail_open: bool = False,
+) -> None:
+    """Aggregate local-filter efficiency without storing discarded images."""
+    day = now_local().date().isoformat()
+    with db() as con:
+        con.execute(
+            """
+            INSERT INTO prefilter_stats(
+              day,dvr,channel,received,passed,skipped,fail_open
+            ) VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(day,dvr,channel) DO UPDATE SET
+              received=received+1,
+              passed=passed+excluded.passed,
+              skipped=skipped+excluded.skipped,
+              fail_open=fail_open+excluded.fail_open
+            """,
+            (
+                day,
+                dvr,
+                channel,
+                1,
+                1 if passed else 0,
+                0 if passed else 1,
+                1 if fail_open else 0,
+            ),
+        )
+        con.commit()
 
 
 def get_state(key: str, default: str = "") -> str:
