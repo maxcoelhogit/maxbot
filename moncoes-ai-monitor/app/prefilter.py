@@ -201,8 +201,9 @@ def _gate_reference_check(
     """Compare the current fixed scene with a privacy-safe edge reference.
 
     The reference stores only a binary edge map, not a camera photograph.
-    Until a clean/stable reference is learned, the gate camera fails open and
-    keeps sending events to the main AI pipeline.
+    Before a clean reference exists, actual structural movement still passes;
+    a stable scene without a semantic trigger is discarded instead of creating
+    a permanent fail-open stream.
     """
     if not _gate_watch(cam) or not dvr or channel is None or not images:
         return "not_applicable", 0.0
@@ -234,17 +235,22 @@ def _gate_reference_check(
     ref_path = GATE_REF_DIR / f"{dvr}_{channel}.png"
 
     if not ref_path.is_file():
-        # Learn only from a stable, object-free end frame. Until then the
-        # security path remains fail-open (OpenAI still sees the event).
+        # Even before a clean closed-state reference is available, structural
+        # motion itself remains a trigger. Stable scenes no longer fail open,
+        # which avoids sending every harmless street/background event to AI.
+        if temporal_ratio >= _gate_motion_threshold(cam):
+            return "moving", temporal_ratio
+
         if not dynamic_boxes[last_idx] and temporal_ratio < 0.010:
             cv2.imwrite(str(ref_path), last_edge)
             log.info(
-                "Referência estrutural do portão aprendida DVR%s cam%s",
+                "Referência estrutural do acesso aprendida DVR%s cam%s",
                 dvr,
                 channel,
             )
             return "learned", temporal_ratio
-        return "learning", temporal_ratio
+
+        return "stable_unreferenced", temporal_ratio
 
     ref_edge = cv2.imread(str(ref_path), cv2.IMREAD_GRAYSCALE)
     if ref_edge is None:
@@ -412,13 +418,20 @@ def inspect_frames(
                     max_confidence=0.0,
                     reason=f"gate_{ref_state}_without_object:{ratio:.4f}",
                 )
-            if ref_state in {"learning", "learned", "unavailable"}:
+            if ref_state == "unavailable":
                 return PrefilterDecision(
                     True,
                     labels=(),
                     max_confidence=0.0,
-                    reason=f"gate_reference_{ref_state}_fail_open",
+                    reason="gate_reference_unavailable_fail_open",
                     fail_open=True,
+                )
+            if ref_state in {"learned", "stable_unreferenced", "closed_like_reference"}:
+                return PrefilterDecision(
+                    False,
+                    labels=(),
+                    max_confidence=0.0,
+                    reason=f"gate_{ref_state}_no_semantic_trigger:{ratio:.4f}",
                 )
 
         return PrefilterDecision(
