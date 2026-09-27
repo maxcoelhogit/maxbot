@@ -500,7 +500,9 @@ def public_status():
         ).fetchone()
 
     healthy = False
+    monitor_state = "updating"
     last_update = None
+    age_seconds = None
     if health_row:
         last_update = health_row["received_at"]
         try:
@@ -508,16 +510,33 @@ def public_status():
             received = datetime.fromisoformat(last_update)
             if received.tzinfo is None:
                 received = received.replace(tzinfo=timezone.utc)
-            age_seconds = (
-                datetime.now(timezone.utc) - received.astimezone(timezone.utc)
-            ).total_seconds()
-            healthy = bool(payload.get("healthy")) and age_seconds < 240
+            age_seconds = max(
+                0,
+                (
+                    datetime.now(timezone.utc)
+                    - received.astimezone(timezone.utc)
+                ).total_seconds(),
+            )
+            payload_healthy = bool(payload.get("healthy"))
+
+            # Public wording is deliberately calmer than the administrative
+            # health screen. One delayed/failed health sample is not evidence
+            # that CCTV monitoring stopped.
+            if payload_healthy and age_seconds < 240:
+                monitor_state = "active"
+                healthy = True
+            elif age_seconds < 900:
+                monitor_state = "updating"
+            else:
+                monitor_state = "unavailable"
         except Exception:
-            healthy = False
+            monitor_state = "updating"
 
     return {
         "monitor_active": healthy,
+        "monitor_state": monitor_state,
         "last_update": last_update,
+        "health_age_seconds": age_seconds,
         "today": {
             "analyzed": int(counts["total"] or 0),
             "sent_for_review": int(counts["review"] or 0),
