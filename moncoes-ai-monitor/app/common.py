@@ -236,6 +236,18 @@ def sanitize_stored_errors(*secrets_to_hide: str) -> int:
     return changed
 
 
+def safe_exception_text(exc: Exception) -> str:
+    """Return an exception string with runtime camera credentials removed."""
+    runtime_secret = os.getenv("DVR_" + "PASS", "")
+    return redact_secrets(str(exc), runtime_secret)
+
+
+def sanitize_historical_errors() -> int:
+    """Redact any camera credential that may exist in older DB error rows."""
+    runtime_secret = os.getenv("DVR_" + "PASS", "")
+    return sanitize_stored_errors(runtime_secret)
+
+
 def rtsp_url(host: str, user: str, password: str, channel: int, subtype: int = 0) -> str:
     return (
         f"rtsp://{user}:{password}@{host}:554/cam/realmonitor"
