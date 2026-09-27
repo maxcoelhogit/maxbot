@@ -169,13 +169,14 @@ def process_event(
 
     try:
         if source == "realtime":
+            live_seconds = int(cam.get("capture_seconds", 12))
             frames = capture_live_frames(
                 host,
                 USER,
                 PASSWORD,
                 channel,
                 work,
-                seconds=12,
+                seconds=live_seconds,
                 count=4,
                 rotate=int(cam.get("rotate", 0)),
             )
