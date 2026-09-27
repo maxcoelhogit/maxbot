@@ -45,7 +45,7 @@ function renderPushState(active){
     $("pushBtn").disabled=false;
     $("notificationCheck").textContent="•";
     $("notificationCheck").className="status-icon neutral";
-    $("notificationText").textContent=Notification.permission==="denied"?"Bloqueados pelo aparelho":"Ainda não ativados";
+    $("notificationText").textContent=("Notification" in window&&Notification.permission==="denied")?"Bloqueados pelo aparelho":"Ainda não ativados";
   }
 }
 
@@ -147,8 +147,19 @@ async function boot(){
   await ensureServiceWorker();
   if("Notification" in window&&Notification.permission==="granted"){
     currentSubscription=await getSubscription();
+    if(currentSubscription){
+      try{
+        await jsonFetch("/public/api/push/subscribe",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(currentSubscription.toJSON())
+        });
+      }catch{}
+    }
   }
   renderPushState(!!currentSubscription);
+  const isStandalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+  if(isStandalone)$("installBtn").classList.add("hidden");
   await Promise.all([loadStatus(),loadEvents()]);
 }
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e});
