@@ -1,13 +1,13 @@
 {
   "name": "Monções Segurança",
   "short_name": "Monções",
-  "description": "Monitoramento inteligente e alertas críticos de segurança do Condomínio Edifício Monções.",
+  "description": "Monitoramento inteligente e alertas críticos de segurança do Edifício Monções.",
   "id": "/seguranca/",
   "start_url": "/seguranca/",
   "scope": "/seguranca/",
   "display": "standalone",
-  "background_color": "#f4f7fa",
-  "theme_color": "#f6f8fb",
+  "background_color": "#f5f2ef",
+  "theme_color": "#ede7e1",
   "icons": [
     {"src": "/seguranca/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
   ]
