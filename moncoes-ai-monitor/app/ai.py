@@ -12,6 +12,7 @@ from common import CONFIG_DIR, data_url, load_json
 
 EventCategory = Literal[
     "normal_activity",
+    "background_motion",
     "garage_gate_open",
     "pedestrian_garage_access",
     "forced_access_attempt",
@@ -59,6 +60,7 @@ REGRAS DE SEVERIDADE:
   3) acesso possivelmente irregular quando a imagem não permite confirmar autorização.
 - 'uncertain' é para evidência insuficiente ou ambígua que não se encaixe com segurança nos casos acima.
 - 'normal' é para atividade rotineira sem indício relevante.
+- Quando o movimento tiver sido acionado apenas por inseto, mudança de luz/sombra, porta do elevador abrindo/fechando sem pessoa, cenário vazio ou qualquer movimento sem pessoa, veículo, animal ou objeto relevante, use status 'normal' e categoria 'background_motion'. Esses eventos são técnicos e não devem ser apresentados aos moradores.
 
 Para interações humanas, aplique um limiar rigoroso para evitar falso positivo sensível:
 - Proximidade entre pessoas, abraço, toque breve em ombro/costas/braço, mãos próximas ao corpo, conversa, carinho ou contato social aparentemente calmo NÃO são, isoladamente, evidência de violência ou assédio. Classifique como 'normal' quando não houver outro sinal objetivo de risco.
@@ -109,10 +111,13 @@ DVR: {dvr}; câmera física: {channel}; local: {camera['name']}; prioridade: {ca
 Regras relevantes:
 {camera_context(camera)}
 Classifique somente a evidência visual. A imagem é uma montagem 2x2 em ordem temporal.
-Use uma destas categorias exatamente: normal_activity, garage_gate_open, pedestrian_garage_access,
+Use uma destas categorias exatamente: normal_activity, background_motion, garage_gate_open, pedestrian_garage_access,
 forced_access_attempt, energy_room_object_removal, technical_area_access, vandalism,
 violence_or_harassment, unauthorized_access_suspected, rule_violation, other_safety_risk,
 uncertain_context.
+
+EVENTOS SEM CONTEÚDO RELEVANTE:
+Se a sequência estiver vazia ou mostrar apenas inseto, sombra, variação de iluminação, porta do elevador se movendo sozinha ou outro acionamento técnico sem pessoa, veículo, animal ou objeto relevante, use category='background_motion', status='normal', needs_human_review=false.
 
 ATENÇÃO ESPECIAL ÀS INTERAÇÕES HUMANAS:
 Um toque breve no ombro, costas ou braço, abraço, aproximação, conversa ou gesto de carinho sem resistência, queda, golpe, contenção forçada ou tentativa de afastamento deve ser tratado como atividade normal. Não converta contato social comum em alerta de violência/assédio.
