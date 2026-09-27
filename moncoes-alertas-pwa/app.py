@@ -522,7 +522,11 @@ def public_status():
             # Public wording is deliberately calmer than the administrative
             # health screen. One delayed/failed health sample is not evidence
             # that CCTV monitoring stopped.
-            if payload_healthy and age_seconds < 240:
+            # The health timer runs every 5 minutes. A 4-minute
+            # freshness threshold made the public badge oscillate to
+            # "updating" even while the monitor was healthy. Allow enough
+            # headroom for timer cadence and normal systemd/network jitter.
+            if payload_healthy and age_seconds < 480:
                 monitor_state = "active"
                 healthy = True
             elif age_seconds < 900:
