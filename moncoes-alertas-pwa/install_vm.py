@@ -109,7 +109,7 @@ print(json.dumps({
     "VAPID_PRIVATE_KEY": b64u(priv),
     "VAPID_PUBLIC_KEY": b64u(pub),
     "INGEST_TOKEN": secrets.token_urlsafe(32),
-    "DEVICE_INVITE_CODE": secrets.token_hex(4).upper(),
+    "DEVICE_INVITE_CODE": secrets.token_hex(8).upper(),
 }))
 """
     r = run([BASE / "venv/bin/python", "-c", code], capture=True)
