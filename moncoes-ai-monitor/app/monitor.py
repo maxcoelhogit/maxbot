@@ -43,6 +43,8 @@ DEBOUNCE = int(os.getenv("EVENT_DEBOUNCE_SECONDS", "90"))
 POLL_SECONDS = int(os.getenv("DVR101_POLL_SECONDS", "300"))
 MODE = os.getenv("MONCOES_MODE", "observe")
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
+PORTAL_BASE_URL = os.getenv("PORTAL_BASE_URL", "").strip().rstrip("/")
+PORTAL_INGEST_TOKEN = os.getenv("PORTAL_INGEST_TOKEN", "").strip()
 
 last_event: dict[tuple[str, int], float] = {}
 processing: set[tuple[str, int]] = set()
@@ -121,6 +123,20 @@ def save_record(
             ),
         )
         con.commit()
+
+
+def publish_portal_event(payload: dict):
+    if not PORTAL_BASE_URL or not PORTAL_INGEST_TOKEN:
+        return
+    try:
+        requests.post(
+            f"{PORTAL_BASE_URL}/api/ingest/event",
+            json=payload,
+            headers={"X-Ingest-Token": PORTAL_INGEST_TOKEN},
+            timeout=8,
+        ).raise_for_status()
+    except Exception as exc:
+        log.warning("Falha sincronizando evento com portal: %s", exc)
 
 
 def notify_if_critical(payload: dict):
@@ -207,6 +223,24 @@ def process_event(
             key, dvr, channel, cam, start, end, source,
             triage, final, evidence_path
         )
+
+        publish_portal_event(
+            {
+                "event_key": key,
+                "occurred_at": start.isoformat(),
+                "dvr": dvr,
+                "channel": channel,
+                "camera": cam["name"],
+                "status": final.status,
+                "confidence": final.confidence,
+                "category": final.category,
+                "description": final.description,
+                "rule_reference": final.rule_reference,
+                "needs_human_review": final.needs_human_review,
+                "source": source,
+            }
+        )
+
         log.info(
             "Evento %s camera=%s status=%s confidence=%.2f",
             key, cam["name"], final.status, final.confidence
