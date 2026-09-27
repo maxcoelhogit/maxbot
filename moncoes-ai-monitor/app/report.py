@@ -224,24 +224,41 @@ def _metric(value: int, label: str, styles):
     )
 
 
-def _select_representative_normals(rows, limit: int):
+def _representative_candidates(rows, target: int):
+    """Return enough normal-event candidates to reliably obtain report images.
+
+    Prefer historical poll events because playback is usually the most stable,
+    but keep listener/realtime events as fallbacks. We return several
+    candidates instead of exactly the requested count because a single DVR
+    playback window can occasionally be unavailable.
+    """
     normals = [
         r for r in rows
         if r["final_status"] == "normal"
         and not r["error"]
-        and r["source"] == "poll"
     ]
-    selected = []
+
+    source_rank = {"poll": 0, "listener_stop": 1, "realtime": 2}
+    normals = sorted(
+        normals,
+        key=lambda r: (
+            source_rank.get(r["source"], 9),
+            -( _dt(r["started_at"]).timestamp() if _dt(r["started_at"]) else 0 ),
+        ),
+    )
+
+    # First offer different cameras; then allow additional events from the
+    # same camera so one bad playback window does not remove all photos.
+    ordered = []
     used = set()
-    for row in reversed(normals):
+    for row in normals:
         key = (row["dvr"], row["channel"])
-        if key in used:
-            continue
-        selected.append(row)
-        used.add(key)
-        if len(selected) >= limit:
-            break
-    return list(reversed(selected))
+        if key not in used:
+            ordered.append(row)
+            used.add(key)
+    ordered.extend(row for row in normals if row not in ordered)
+
+    return ordered[: max(8, target * 8)]
 
 
 def _event_image(row, cameras, temp_root: Path) -> Path | None:
@@ -447,16 +464,22 @@ def build(period: str) -> Path:
     highlights = (critical + list(reversed(other_relevant)))[:max_highlights]
     highlights.sort(key=lambda r: r["started_at"] or "")
 
-    representative = _select_representative_normals(
-        rows,
-        2 if period == "weekly" else 1,
-    )
+    representative_target = 2 if period == "weekly" else 1
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     output = REPORT_DIR / f"relatorio_{period}_{now.strftime('%Y%m%d_%H%M%S')}.pdf"
     report_tmp = TMP_DIR / f"report_{period}_{now.strftime('%Y%m%d_%H%M%S')}"
     report_tmp.mkdir(parents=True, exist_ok=True)
+
+    representative_assets = []
+    for row in _representative_candidates(rows, representative_target):
+        image_path = _event_image(row, cameras, report_tmp)
+        if not image_path:
+            continue
+        representative_assets.append((row, image_path))
+        if len(representative_assets) >= representative_target:
+            break
 
     doc = SimpleDocTemplate(
         str(output),
@@ -602,7 +625,7 @@ def build(period: str) -> Path:
             ]
         )
 
-    if representative:
+    if representative_assets:
         story.extend([PageBreak(), Paragraph("Exemplos representativos de rotina", styles["Section"])])
         story.append(
             Paragraph(
@@ -612,8 +635,7 @@ def build(period: str) -> Path:
                 styles["BodyReport"],
             )
         )
-        for row in representative:
-            image_path = _event_image(row, cameras, report_tmp)
+        for row, image_path in representative_assets:
             story.append(_event_block(row, image_path, styles))
 
     story.extend(
