@@ -103,6 +103,13 @@ def _threshold(cam: dict) -> float:
     return 0.18
 
 
+def _allowed_labels(cam: dict) -> set[str]:
+    configured = cam.get("prefilter_classes")
+    if configured:
+        return {str(label).strip().lower() for label in configured if str(label).strip()}
+    return set(RELEVANT_CLASSES.values())
+
+
 def _always_analyze(cam: dict) -> bool:
     # A câmera principal do portão pode precisar de análise mesmo quando o
     # veículo já saiu do quadro, pois o estado final do portão é relevante.
@@ -140,6 +147,7 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
 
         net = _load_net()
         threshold = _threshold(cam)
+        allowed_labels = _allowed_labels(cam)
         labels: dict[str, float] = {}
 
         # Four temporal frames are already captured for the AI pipeline.
@@ -173,7 +181,7 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
                     continue
                 class_id = int(detection[1])
                 label = RELEVANT_CLASSES.get(class_id)
-                if not label:
+                if not label or label not in allowed_labels:
                     continue
                 labels[label] = max(labels.get(label, 0.0), confidence)
 
