@@ -259,7 +259,17 @@ def register(body: RegisterBody):
 
 @app.get("/api/me")
 def me(device=Depends(current_device)):
-    return {"id": device["id"], "name": device["name"]}
+    with db() as con:
+        push_count = con.execute(
+            "SELECT COUNT(*) FROM subscriptions WHERE device_id=?",
+            (device["id"],),
+        ).fetchone()[0]
+    return {
+        "id": device["id"],
+        "name": device["name"],
+        "push_subscribed": push_count > 0,
+        "push_subscription_count": push_count,
+    }
 
 
 @app.post("/api/push/subscribe")
@@ -281,6 +291,79 @@ def subscribe(body: SubscriptionBody, device=Depends(current_device)):
         )
         con.commit()
     return {"ok": True}
+
+
+@app.post("/api/push/test")
+def test_push(device=Depends(current_device)):
+    if not (VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY):
+        raise HTTPException(status_code=503, detail="Web Push não configurado")
+
+    with db() as con:
+        rows = con.execute(
+            "SELECT * FROM subscriptions WHERE device_id=?",
+            (device["id"],),
+        ).fetchall()
+
+    if not rows:
+        raise HTTPException(
+            status_code=409,
+            detail="Este aparelho ainda não possui assinatura push registrada.",
+        )
+
+    payload = json.dumps(
+        {
+            "title": "Teste — Monções Alertas",
+            "body": "Notificações do Monções Alertas estão funcionando.",
+            "url": "/",
+        }
+    )
+    sent = 0
+    failures = []
+    stale = []
+
+    for row in rows:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": row["endpoint"],
+                    "keys": {
+                        "p256dh": row["p256dh"],
+                        "auth": row["auth"],
+                    },
+                },
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_SUBJECT},
+                ttl=300,
+                timeout=15,
+            )
+            sent += 1
+        except WebPushException as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            failures.append(
+                {"type": "WebPushException", "http_status": status}
+            )
+            if status in (404, 410):
+                stale.append(row["id"])
+        except Exception as exc:
+            failures.append({"type": type(exc).__name__, "http_status": None})
+
+    if stale:
+        with db() as con:
+            for sid in stale:
+                con.execute("DELETE FROM subscriptions WHERE id=?", (sid,))
+            con.commit()
+
+    if sent == 0:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "O servidor não conseguiu entregar o push.",
+                "failures": failures,
+            },
+        )
+
+    return {"ok": True, "sent": sent, "failures": failures}
 
 
 @app.get("/api/status")
@@ -329,16 +412,61 @@ def report_list(device=Depends(current_device)):
     return [dict(row) for row in rows]
 
 
-@app.get("/api/reports/{report_id}/download")
-def report_download(report_id: int, device=Depends(current_device)):
+def _report_signature(report_id: int, expires: int) -> str:
+    if not INGEST_TOKEN:
+        raise HTTPException(status_code=503, detail="assinatura de download indisponível")
+    message = f"report:{report_id}:{expires}".encode("utf-8")
+    return hmac.new(
+        INGEST_TOKEN.encode("utf-8"),
+        message,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+@app.post("/api/reports/{report_id}/link")
+def report_link(report_id: int, request: Request, device=Depends(current_device)):
     with db() as con:
         row = con.execute("SELECT * FROM reports WHERE id=?", (report_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="relatório não encontrado")
+
     path = REPORTS / row["filename"]
     if not path.exists():
         raise HTTPException(status_code=404, detail="arquivo indisponível")
-    return FileResponse(path, media_type="application/pdf", filename=row["filename"])
+
+    expires = int(datetime.now(timezone.utc).timestamp()) + 300
+    sig = _report_signature(report_id, expires)
+    url = request.url_for("report_download_signed").include_query_params(
+        exp=expires,
+        sig=sig,
+    )
+    return {"url": str(url), "expires_in_seconds": 300}
+
+
+@app.get("/r/{report_id}", name="report_download_signed")
+def report_download_signed(report_id: int, exp: int, sig: str):
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if exp < now_ts or exp > now_ts + 600:
+        raise HTTPException(status_code=403, detail="link expirado")
+
+    expected = _report_signature(report_id, exp)
+    if not hmac.compare_digest(sig, expected):
+        raise HTTPException(status_code=403, detail="assinatura inválida")
+
+    with db() as con:
+        row = con.execute("SELECT * FROM reports WHERE id=?", (report_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="relatório não encontrado")
+
+    path = REPORTS / row["filename"]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="arquivo indisponível")
+
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=row["filename"],
+    )
 
 
 @app.post("/api/ingest/event")
@@ -370,7 +498,7 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
         location = body.camera or "área monitorada"
         push_sent = send_push(
             "⚠️ Alerta crítico — Monções",
-            f"{location}: {body.description or 'Situação crítica detectada.'}",
+            f"Alerta crítico detectado em {location}. Toque para abrir os detalhes.",
             f"/?event={event_id}",
         )
     return {"ok": True, "id": event_id, "duplicate": False, "push_sent": push_sent}
