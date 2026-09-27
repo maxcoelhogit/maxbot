@@ -7,6 +7,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -215,6 +216,26 @@ def redact_secrets(text: str, *secrets_to_hide: str) -> str:
     return value
 
 
+def sanitize_stored_errors(*secrets_to_hide: str) -> int:
+    """Redact credentials already present in historical error rows."""
+    changed = 0
+    with db() as con:
+        rows = con.execute(
+            "SELECT id,error FROM events WHERE error IS NOT NULL"
+        ).fetchall()
+        for row in rows:
+            clean = redact_secrets(row["error"], *secrets_to_hide)
+            if clean != row["error"]:
+                con.execute(
+                    "UPDATE events SET error=? WHERE id=?",
+                    (clean, row["id"]),
+                )
+                changed += 1
+        if changed:
+            con.commit()
+    return changed
+
+
 def rtsp_url(host: str, user: str, password: str, channel: int, subtype: int = 0) -> str:
     return (
         f"rtsp://{user}:{password}@{host}:554/cam/realmonitor"
@@ -267,7 +288,13 @@ def capture_live_frames(
         "-frames:v", str(count),
         str(out_dir / "frame_%02d.jpg"),
     ]
-    result = run(cmd, timeout=max(45, seconds + 30), check=False)
+    try:
+        result = run(cmd, timeout=max(45, seconds + 30), check=False)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"Falha FFmpeg live: timeout após {max(45, seconds + 30)}s"
+        ) from None
+
     frames = sorted(out_dir.glob("frame_*.jpg"))
     if result.returncode != 0 or not frames:
         raise RuntimeError(
@@ -299,13 +326,29 @@ def capture_playback_frames(
         "-frames:v", str(count),
         str(out_dir / "frame_%02d.jpg"),
     ]
-    result = run(cmd, timeout=50, check=False)
-    frames = sorted(out_dir.glob("frame_*.jpg"))
-    if result.returncode != 0 or not frames:
-        raise RuntimeError(
-            f"Falha FFmpeg playback: {redact_secrets(result.stderr[-600:], password)}"
-        )
-    return frames
+    last_error = ""
+    for attempt in range(2):
+        for old_frame in out_dir.glob("frame_*.jpg"):
+            try:
+                old_frame.unlink()
+            except Exception:
+                pass
+
+        try:
+            result = run(cmd, timeout=50, check=False)
+            frames = sorted(out_dir.glob("frame_*.jpg"))
+            if result.returncode == 0 and frames:
+                return frames
+            last_error = redact_secrets(result.stderr[-600:], password)
+        except subprocess.TimeoutExpired:
+            last_error = "timeout após 50s"
+
+        if attempt == 0:
+            time.sleep(1.0)
+
+    raise RuntimeError(
+        f"Falha FFmpeg playback após 2 tentativas: {last_error}"
+    )
 
 
 def make_contact_sheet(frames: list[Path], output: Path, target_width: int = 1280) -> Path:
