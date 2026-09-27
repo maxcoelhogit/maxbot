@@ -314,6 +314,8 @@ def _resident_feed_relevant(row: sqlite3.Row) -> bool:
         "nenhuma pessoa visível",
         "nenhuma pessoa aparece",
         "sem movimento relevante",
+        "não há pessoas, animais",
+        "nenhum movimento humano, animal",
     )
     return not any(marker in description for marker in trivial_markers)
 
