@@ -11,7 +11,7 @@
   <link rel="manifest" href="/seguranca/manifest.webmanifest">
   <link rel="icon" href="/seguranca/icon.svg">
   <link rel="apple-touch-icon" href="/seguranca/icon.svg">
-  <link rel="stylesheet" href="/static/resident/style.css">
+  <link rel="stylesheet" href="/static/resident/style.css?v=20260927-2">
 </head>
 <body>
   <main class="app-shell">
@@ -46,7 +46,11 @@
           <h2 id="pushTitle">Ative os alertas críticos</h2>
           <p id="pushText">Receba avisos no celular quando o sistema identificar uma situação crítica apropriada para comunicação aos moradores.</p>
         </div>
-        <button id="pushBtn" class="primary-btn">Ativar alertas</button>
+        <div class="push-actions">
+          <button id="pushBtn" class="primary-btn">Ativar alertas</button>
+          <button id="maxAlertBtn" class="max-alert-btn">Configurar alerta máximo</button>
+        </div>
+        <p class="push-note">Ativar alertas conecta este aparelho ao sistema. “Alerta máximo” orienta os ajustes de som, vibração e prioridade que dependem do próprio celular.</p>
       </section>
 
       <section class="status-grid">
@@ -86,7 +90,6 @@
         <p>Instale o Monções Segurança na tela inicial e mantenha as notificações permitidas.</p>
         <div class="setup-actions">
           <button id="installBtn" class="secondary-btn">Instalar aplicativo</button>
-          <button id="maxAlertBtn" class="text-btn">Configurar alerta máximo</button>
           <button id="testBtn" class="text-btn hidden">Testar notificação</button>
         </div>
       </section>
@@ -96,7 +99,7 @@
       <section class="page-title">
         <span class="eyebrow">HISTÓRICO PÚBLICO</span>
         <h1>Eventos analisados</h1>
-        <p>Descrições objetivas do que foi observado pela IA, sem imagens e sem identificação de pessoas.</p>
+        <p>Descrições objetivas do que foi observado pela IA, sem imagens e sem identificação de pessoas. O histórico público mostra apenas os eventos relevantes das últimas 12 horas.</p>
       </section>
       <section class="feed-section">
         <div class="section-head">
@@ -180,6 +183,6 @@
     </div>
   </div>
 
-  <script src="/static/resident/app.js" defer></script>
+  <script src="/static/resident/app.js?v=20260927-2" defer></script>
 </body>
 </html>
