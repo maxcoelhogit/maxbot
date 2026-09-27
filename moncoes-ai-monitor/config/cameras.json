@@ -13,7 +13,10 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM"
         ],
-        "prefilter_confidence": 0.18
+        "prefilter_confidence": 0.18,
+        "prefilter_classes": [
+          "person"
+        ]
       },
       "2": {
         "name": "Rua / calçada - sentido B",
@@ -25,7 +28,10 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM"
         ],
-        "prefilter_confidence": 0.18
+        "prefilter_confidence": 0.18,
+        "prefilter_classes": [
+          "person"
+        ]
       },
       "3": {
         "name": "Portão de veículos / acesso frontal",
