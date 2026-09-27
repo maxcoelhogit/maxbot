@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
+
+import requests
 from datetime import timedelta
 from pathlib import Path
 
@@ -154,6 +157,22 @@ def build(period: str) -> Path:
             story += [Spacer(1, 12)]
 
     doc.build(story)
+
+    portal = os.getenv("PORTAL_BASE_URL", "").strip().rstrip("/")
+    token = os.getenv("PORTAL_INGEST_TOKEN", "").strip()
+    if portal and token:
+        try:
+            with output.open("rb") as fh:
+                requests.post(
+                    f"{portal}/api/ingest/report",
+                    params={"kind": period},
+                    files={"file": (output.name, fh, "application/pdf")},
+                    headers={"X-Ingest-Token": token},
+                    timeout=30,
+                ).raise_for_status()
+        except Exception:
+            pass
+
     return output
 
 
