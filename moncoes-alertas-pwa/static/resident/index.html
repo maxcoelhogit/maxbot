@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f6f8fb">
+  <meta name="theme-color" content="#ede7e1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Monções Segurança">
@@ -15,80 +15,159 @@
 </head>
 <body>
   <main class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <img src="/seguranca/icon.svg" alt="" class="brand-logo">
+    <header class="identity-card">
+      <img src="/static/resident/brand-logo.svg" alt="Edifício Monções" class="official-logo">
+      <div class="identity-row">
         <div>
-          <div class="brand-name">Edifício Monções</div>
-          <div class="brand-sub">Segurança inteligente</div>
+          <span class="product-name">Monções Segurança</span>
+          <span class="product-sub">Monitoramento inteligente das áreas comuns</span>
         </div>
+        <span id="liveBadge" class="live-badge checking"><span class="pulse"></span>Verificando</span>
       </div>
-      <span id="liveBadge" class="live-badge checking"><span class="pulse"></span>Verificando</span>
     </header>
 
-    <section class="hero">
-      <div class="hero-kicker">MONITORAMENTO INTELIGENTE 24H</div>
-      <h1>Monções Segurança</h1>
-      <p>A IA acompanha as áreas monitoradas, analisa os eventos e encaminha exceções para a administração.</p>
-    </section>
+    <nav class="tabbar" aria-label="Navegação principal">
+      <button class="tab active" data-tab="inicio">Início</button>
+      <button class="tab" data-tab="eventos">Eventos</button>
+      <button class="tab" data-tab="como">Como funciona</button>
+      <button class="tab" data-tab="sobre">Sobre</button>
+    </nav>
 
-    <section id="pushCard" class="push-card">
-      <div class="push-icon" id="pushIcon">!</div>
-      <div class="push-copy">
-        <h2 id="pushTitle">Ative os alertas críticos</h2>
-        <p id="pushText">Receba no celular avisos de situações críticas identificadas pelo monitoramento.</p>
-      </div>
-      <button id="pushBtn" class="primary-btn">Ativar alertas</button>
-    </section>
+    <section class="tab-panel active" data-panel="inicio">
+      <section class="hero">
+        <span class="eyebrow">SEGURANÇA ASSISTIDA POR IA · 24H</span>
+        <h1>Monitoramento ativo, gestão pela administração.</h1>
+        <p>A IA analisa eventos das áreas monitoradas e encaminha situações relevantes para revisão administrativa.</p>
+      </section>
 
-    <section class="status-grid">
-      <article class="status-card">
-        <span class="status-icon ok">✓</span>
-        <div>
-          <strong id="monitorTitle">Monitoramento IA</strong>
-          <span id="monitorText">Verificando sistema…</span>
+      <section id="pushCard" class="push-card">
+        <div class="push-icon" id="pushIcon">!</div>
+        <div class="push-copy">
+          <h2 id="pushTitle">Ative os alertas críticos</h2>
+          <p id="pushText">Receba avisos no celular quando o sistema identificar uma situação crítica apropriada para comunicação aos moradores.</p>
         </div>
-      </article>
-      <article class="status-card">
-        <span id="notificationCheck" class="status-icon neutral">•</span>
-        <div>
-          <strong>Alertas de segurança</strong>
-          <span id="notificationText">Ainda não ativados</span>
+        <button id="pushBtn" class="primary-btn">Ativar alertas</button>
+      </section>
+
+      <section class="status-grid">
+        <article class="status-card">
+          <span class="status-icon ok">✓</span>
+          <div>
+            <strong id="monitorTitle">Monitoramento IA</strong>
+            <span id="monitorText">Verificando sistema…</span>
+          </div>
+        </article>
+        <article class="status-card">
+          <span id="notificationCheck" class="status-icon neutral">•</span>
+          <div>
+            <strong>Alertas de segurança</strong>
+            <span id="notificationText">Ainda não ativados</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="metrics">
+        <article><strong id="metricAnalyzed">—</strong><span>eventos analisados hoje</span></article>
+        <article><strong id="metricReview">—</strong><span>encaminhados para revisão</span></article>
+        <article><strong id="metricCritical">—</strong><span>alertas críticos públicos</span></article>
+      </section>
+
+      <section class="feed-section">
+        <div class="section-head">
+          <div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>O que a IA observou</h2></div>
+          <button id="homeRefreshBtn" class="icon-btn" aria-label="Atualizar">↻</button>
         </div>
-      </article>
-    </section>
+        <div id="homeEvents" class="event-list"><div class="loading-card">Carregando eventos…</div></div>
+        <button id="seeAllBtn" class="wide-link">Ver todos os eventos</button>
+      </section>
 
-    <section class="metrics">
-      <article><strong id="metricAnalyzed">—</strong><span>eventos analisados hoje</span></article>
-      <article><strong id="metricReview">—</strong><span>encaminhados para revisão</span></article>
-      <article><strong id="metricCritical">—</strong><span>alertas críticos</span></article>
-    </section>
-
-    <section class="feed-section">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">ATIVIDADE RECENTE</span>
-          <h2>O que a IA observou</h2>
+      <section class="setup-section">
+        <h2>Deixe como um app no celular</h2>
+        <p>Instale o Monções Segurança na tela inicial e mantenha as notificações permitidas.</p>
+        <div class="setup-actions">
+          <button id="installBtn" class="secondary-btn">Instalar aplicativo</button>
+          <button id="maxAlertBtn" class="text-btn">Configurar alerta máximo</button>
+          <button id="testBtn" class="text-btn hidden">Testar notificação</button>
         </div>
-        <button id="refreshBtn" class="icon-btn" aria-label="Atualizar">↻</button>
-      </div>
-      <div id="events" class="event-list">
-        <div class="loading-card">Carregando eventos…</div>
-      </div>
+      </section>
     </section>
 
-    <section class="setup-section">
-      <h2>Deixe como um app no seu celular</h2>
-      <p>Instale o Monções Segurança na tela inicial e mantenha as notificações permitidas.</p>
-      <div class="setup-actions">
-        <button id="installBtn" class="secondary-btn">Instalar aplicativo</button>
-        <button id="maxAlertBtn" class="text-btn">Configurar alerta máximo</button>
-        <button id="testBtn" class="text-btn hidden">Testar notificação</button>
-      </div>
+    <section class="tab-panel" data-panel="eventos">
+      <section class="page-title">
+        <span class="eyebrow">HISTÓRICO PÚBLICO</span>
+        <h1>Eventos analisados</h1>
+        <p>Descrições objetivas do que foi observado pela IA, sem imagens e sem identificação de pessoas.</p>
+      </section>
+      <section class="feed-section">
+        <div class="section-head">
+          <div><span class="eyebrow">MONITORAMENTO</span><h2>Atividade recente</h2></div>
+          <button id="refreshBtn" class="icon-btn" aria-label="Atualizar">↻</button>
+        </div>
+        <div id="events" class="event-list"><div class="loading-card">Carregando eventos…</div></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="como">
+      <section class="page-title">
+        <span class="eyebrow">VISÃO GERAL</span>
+        <h1>Como funciona</h1>
+        <p>Uma explicação simples da lógica do Monções Segurança.</p>
+      </section>
+
+      <section class="info-card flow-card">
+        <div class="flow-step"><span>1</span><div><strong>Câmeras e eventos</strong><p>Os DVRs do edifício detectam movimento nas áreas monitoradas e disponibilizam os trechos relevantes ao sistema.</p></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-step"><span>2</span><div><strong>Análise por inteligência artificial</strong><p>A IA compara momentos sucessivos do evento e descreve apenas o que é visualmente observável.</p></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-step"><span>3</span><div><strong>Triagem e revisão</strong><p>Atividades rotineiras são registradas; exceções são encaminhadas para revisão administrativa. O sistema não aplica advertências ou multas automaticamente.</p></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-step"><span>4</span><div><strong>Alertas críticos</strong><p>Situações objetivas de risco podem gerar alerta imediato. Interações humanas sensíveis ou ambíguas são preservadas para revisão administrativa antes de uma comunicação pública.</p></div></div>
+      </section>
+
+      <section class="info-card">
+        <h2>Privacidade por desenho</h2>
+        <div class="privacy-grid">
+          <div><span>✓</span><p>Não realiza reconhecimento facial ou identificação automática de pessoas.</p></div>
+          <div><span>✓</span><p>O aplicativo dos moradores não exibe imagens nem relatórios administrativos.</p></div>
+          <div><span>✓</span><p>Descrições públicas evitam conclusões sobre intenção, culpa, relacionamento ou autorização.</p></div>
+          <div><span>✓</span><p>Eventos sensíveis permanecem sujeitos a avaliação humana.</p></div>
+        </div>
+      </section>
+
+      <section class="info-card note-card">
+        <strong>Importante</strong>
+        <p>O Monções Segurança é uma ferramenta de apoio à segurança e à gestão. A IA reduz o volume de imagens que exigem atenção humana, mas não substitui avaliação administrativa nem serviços públicos de emergência.</p>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="sobre">
+      <section class="page-title">
+        <span class="eyebrow">SOBRE A APLICAÇÃO</span>
+        <h1>Monções Segurança</h1>
+        <p>Tecnologia desenvolvida especificamente para apoiar o monitoramento do Edifício Monções.</p>
+      </section>
+
+      <section class="about-identity">
+        <img src="/static/resident/brand-logo.svg" alt="Edifício Monções" class="about-logo">
+      </section>
+
+      <section class="info-card">
+        <h2>Finalidade</h2>
+        <p>O sistema integra os recursos de CFTV existentes do edifício a uma camada de análise por inteligência artificial, triagem de eventos, alertas e apoio à revisão administrativa.</p>
+        <p>A versão destinada aos moradores apresenta somente informações sanitizadas: status operacional, contadores e descrições de eventos. Imagens, relatórios e ferramentas administrativas permanecem em ambiente restrito.</p>
+      </section>
+
+      <section class="info-card ownership-card">
+        <h2>Desenvolvimento e propriedade</h2>
+        <p><strong>Concepção, arquitetura e desenvolvimento: Maxwell Coelho.</strong></p>
+        <p>O Monções Segurança é uma aplicação privada, desenvolvida e mantida em infraestrutura e recursos tecnológicos de seu desenvolvedor, atualmente disponibilizada ao Condomínio Edifício Monções para apoio à segurança e à gestão.</p>
+        <p>A disponibilização para uso do condomínio não representa cessão do código, da arquitetura ou da infraestrutura tecnológica da aplicação.</p>
+        <div class="copyright">© 2026 Maxwell Coelho · Todos os direitos reservados.</div>
+      </section>
     </section>
 
     <footer>
-      <p>O aplicativo público não exibe imagens, relatórios administrativos ou dados de identificação. A análise por IA apoia a gestão e não substitui a revisão humana.</p>
+      <p>Monções Segurança · aplicação de apoio ao monitoramento das áreas comuns</p>
     </footer>
   </main>
 
@@ -97,7 +176,7 @@
       <button id="closeModal" class="modal-close" aria-label="Fechar">×</button>
       <h2 id="modalTitle">Configurar alerta máximo</h2>
       <div id="modalBody"></div>
-      <button id="modalOk" class="primary-btn">Entendi</button>
+      <button id="modalOk" class="modal-primary">Entendi</button>
     </div>
   </div>
 
