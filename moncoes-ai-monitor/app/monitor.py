@@ -197,7 +197,12 @@ def process_event(
                 rotate=int(cam.get("rotate", 0)),
             )
 
-        decision = inspect_frames(frames, cam)
+        decision = inspect_frames(
+            frames,
+            cam,
+            dvr=dvr,
+            channel=channel,
+        )
         record_prefilter_result(
             dvr,
             channel,
