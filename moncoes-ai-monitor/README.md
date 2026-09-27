@@ -15,7 +15,9 @@ Monitor de CFTV do Condomínio Edifício Monções.
 - Hall/elevador: movimento da porta do elevador não é gatilho estrutural; a câmera do hall e a câmera interna do elevador dependem de presença relevante
 - Câmeras internas da garagem não usam veículos isolados como gatilho, reduzindo chamadas duplicadas quando o mesmo portão aparece em mais de uma câmera
 - Fail-open: se o pré-filtro local ou a referência estrutural falhar, o evento segue para a IA em vez de ser perdido
-- OpenAI Responses API: triagem com GPT-5.6 Luna; segunda revisão com GPT-5.6 Terra somente em eventos não triviais
+- OpenAI Responses API com cascata transparente de custo: GPT-6 Luna em triagem econômica; GPT-6 Luna em revisão de alta qualidade; GPT-5.6 Terra reservado para casos críticos, incertos ou sensíveis
+- A triagem usa reasoning mínimo e processamento Standard; casos não triviais preservam revisão de alta qualidade e fallback automático
+- Prompt caching é reutilizado pela família GPT-6 e o uso de tokens é registrado localmente para auditoria de custo
 - SQLite local, evidências selecionadas e relatórios PDF
 - systemd: restart automático, health checks, relatórios e retenção
 
@@ -25,6 +27,7 @@ Monitor de CFTV do Condomínio Edifício Monções.
 - Não faz reconhecimento facial nem identificação de pessoas
 - Credenciais ficam fora do GitHub, em `/etc/moncoes-ai/moncoes.env`
 - Mudanças estruturais são habilitadas somente nos acessos relevantes; a porta do elevador é explicitamente excluída dessa lógica
+- A otimização de custo não altera endpoints, banco do portal, notificações, PWA, relatórios ou experiência dos moradores
 - Antes da produção, criar usuário dedicado nos DVRs e trocar a senha de admin usada nos testes
 
 ## Instalação na VM
