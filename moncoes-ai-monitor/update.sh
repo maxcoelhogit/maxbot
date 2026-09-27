@@ -23,6 +23,11 @@ python3 -m py_compile "$PKG_DIR/app/"*.py
 "$BASE/venv/bin/pip" install -q -r "$PKG_DIR/requirements.txt"
 MONCOES_BASE="$BASE" bash "$PKG_DIR/ensure_prefilter_model.sh"
 
+BACKUP_DIR="$(mktemp -d)"
+trap 'rm -rf "$BACKUP_DIR"' EXIT
+cp -a "$BASE/app" "$BACKUP_DIR/app"
+cp -a "$BASE/config" "$BACKUP_DIR/config"
+
 systemctl stop moncoes-ai-monitor.service || true
 
 cp -r "$PKG_DIR/app/." "$BASE/app/"
@@ -34,9 +39,30 @@ cp "$PKG_DIR/requirements.txt" "$BASE/requirements.txt"
 mkdir -p "$BASE/models"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$BASE/app" "$BASE/config" "$BASE/models"
 systemctl restart moncoes-ai-monitor.service
-sleep 3
+
+ok=0
+for _ in {1..10}; do
+  if systemctl is-active --quiet moncoes-ai-monitor.service; then
+    ok=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$ok" -ne 1 ]]; then
+  echo "Nova versão não permaneceu ativa. Restaurando versão anterior..."
+  systemctl stop moncoes-ai-monitor.service || true
+  rm -rf "$BASE/app" "$BASE/config"
+  cp -a "$BACKUP_DIR/app" "$BASE/app"
+  cp -a "$BACKUP_DIR/config" "$BASE/config"
+  chown -R "$SERVICE_USER:$SERVICE_USER" "$BASE/app" "$BASE/config"
+  systemctl restart moncoes-ai-monitor.service || true
+  echo "Rollback concluído. O monitor anterior foi restaurado."
+  systemctl --no-pager --full status moncoes-ai-monitor.service || true
+  exit 1
+fi
 
 echo
 systemctl --no-pager --full status moncoes-ai-monitor.service || true
 echo
-echo "Atualização concluída."
+echo "Atualização concluída com verificação automática e rollback de segurança."
