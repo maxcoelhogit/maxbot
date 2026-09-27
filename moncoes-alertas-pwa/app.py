@@ -424,23 +424,24 @@ def _report_signature(report_id: int, expires: int) -> str:
 
 
 @app.post("/api/reports/{report_id}/link")
-def report_link(report_id: int, request: Request, device=Depends(current_device)):
+def report_link(report_id: int, device=Depends(current_device)):
     with db() as con:
         row = con.execute("SELECT * FROM reports WHERE id=?", (report_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="relatório não encontrado")
 
     path = REPORTS / row["filename"]
-    if not path.exists():
+    if not path.is_file():
         raise HTTPException(status_code=404, detail="arquivo indisponível")
 
     expires = int(datetime.now(timezone.utc).timestamp()) + 300
     sig = _report_signature(report_id, expires)
-    url = request.url_for("report_download_signed").include_query_params(
-        exp=expires,
-        sig=sig,
-    )
-    return {"url": str(url), "expires_in_seconds": 300}
+
+    # Retorna caminho relativo para evitar qualquer dependência de Host /
+    # X-Forwarded-Proto do proxy reverso. O navegador resolve na mesma origem
+    # HTTPS do PWA.
+    url = f"/r/{report_id}?exp={expires}&sig={sig}"
+    return {"url": url, "expires_in_seconds": 300}
 
 
 @app.get("/r/{report_id}", name="report_download_signed")
