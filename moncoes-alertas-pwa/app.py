@@ -439,7 +439,13 @@ def public_status():
         last_update = health_row["received_at"]
         try:
             payload = json.loads(health_row["payload"])
-            healthy = bool(payload.get("healthy"))
+            received = datetime.fromisoformat(last_update)
+            if received.tzinfo is None:
+                received = received.replace(tzinfo=timezone.utc)
+            age_seconds = (
+                datetime.now(timezone.utc) - received.astimezone(timezone.utc)
+            ).total_seconds()
+            healthy = bool(payload.get("healthy")) and age_seconds < 240
         except Exception:
             healthy = False
 
