@@ -93,7 +93,7 @@ def model_ready() -> bool:
 
 def _threshold(cam: dict) -> float:
     # Favor recall: é melhor mandar um evento duvidoso para a OpenAI do que
-    # descartar uma pessoa/veículo por confiança limítrofe.
+    # descartar uma pessoa relevante por confiança limítrofe.
     configured = cam.get("prefilter_confidence")
     if configured is not None:
         return max(0.05, min(float(configured), 0.80))
@@ -102,9 +102,6 @@ def _threshold(cam: dict) -> float:
     if priority in {"critical", "high"}:
         return 0.15
     return 0.18
-
-
-VEHICLE_LABELS = {"car", "motorcycle", "bus", "truck"}
 
 
 def _allowed_labels(cam: dict) -> set[str]:
@@ -118,24 +115,8 @@ def _allowed_labels(cam: dict) -> set[str]:
     return set(RELEVANT_CLASSES.values())
 
 
-def _person_dependent_labels(cam: dict) -> set[str]:
-    configured = cam.get("prefilter_require_person_for", ["bicycle"])
-    return {
-        str(label).strip().lower()
-        for label in configured
-        if str(label).strip()
-    }
-
-
 def _always_analyze(cam: dict) -> bool:
     return bool(cam.get("prefilter_always_analyze", False))
-
-
-def _vehicle_min_area(cam: dict) -> float:
-    value = cam.get("prefilter_vehicle_min_area")
-    if value is None:
-        return 0.0
-    return max(0.0, min(float(value), 0.50))
 
 
 def _gate_watch(cam: dict) -> bool:
@@ -145,10 +126,6 @@ def _gate_watch(cam: dict) -> bool:
 def _gate_motion_threshold(cam: dict) -> float:
     value = cam.get("prefilter_gate_motion_threshold", 0.035)
     return max(0.005, min(float(value), 0.30))
-
-
-def _vehicle_requires_gate_change(cam: dict) -> bool:
-    return bool(cam.get("prefilter_vehicle_requires_gate_change", False))
 
 
 def _gate_reference_threshold(cam: dict) -> float:
@@ -288,62 +265,6 @@ def _expanded_box(
     )
 
 
-def _gate_scene_changed(
-    images: list,
-    dynamic_boxes: list[list[tuple[int, int, int, int]]],
-    threshold: float,
-) -> tuple[bool, float]:
-    """Detect structural scene change while masking people/vehicles/animals.
-
-    This is intentionally conservative and is only enabled on a gate camera.
-    Passing cars are masked before comparison, so a vehicle moving along the
-    street should not by itself trigger OpenAI. A gate opening/closing changes
-    the static scene and remains visible outside those object boxes.
-    """
-    import cv2
-    import numpy as np
-
-    if len(images) < 2:
-        return False, 0.0
-
-    first = images[0]
-    last = images[-1]
-    if first is None or last is None:
-        return False, 0.0
-
-    h, w = first.shape[:2]
-    if last.shape[:2] != (h, w):
-        last = cv2.resize(last, (w, h))
-
-    gray_a = cv2.cvtColor(first, cv2.COLOR_BGR2GRAY)
-    gray_b = cv2.cvtColor(last, cv2.COLOR_BGR2GRAY)
-    gray_a = cv2.GaussianBlur(gray_a, (7, 7), 0)
-    gray_b = cv2.GaussianBlur(gray_b, (7, 7), 0)
-
-    valid = np.ones((h, w), dtype=np.uint8)
-    for box_set in (dynamic_boxes[0], dynamic_boxes[-1]):
-        for box in box_set:
-            x1, y1, x2, y2 = _expanded_box(box, w, h)
-            valid[y1:y2, x1:x2] = 0
-
-    # Ignore a thin border where compression / timestamp overlays often live.
-    border_x = max(2, int(w * 0.02))
-    border_y = max(2, int(h * 0.02))
-    valid[:border_y, :] = 0
-    valid[-border_y:, :] = 0
-    valid[:, :border_x] = 0
-    valid[:, -border_x:] = 0
-
-    diff = cv2.absdiff(gray_a, gray_b)
-    changed = (diff >= 28).astype(np.uint8)
-    valid_pixels = int(valid.sum())
-    if valid_pixels <= 0:
-        return False, 0.0
-
-    ratio = float((changed * valid).sum()) / float(valid_pixels)
-    return ratio >= threshold, ratio
-
-
 def inspect_frames(
     frames: list[Path],
     cam: dict,
@@ -381,7 +302,6 @@ def inspect_frames(
         net = _load_net()
         threshold = _threshold(cam)
         allowed_labels = _allowed_labels(cam)
-        vehicle_min_area = _vehicle_min_area(cam)
         labels: dict[str, float] = {}
         images = []
         dynamic_boxes: list[list[tuple[int, int, int, int]]] = []
@@ -397,7 +317,6 @@ def inspect_frames(
                 continue
 
             height, width = image.shape[:2]
-            frame_area = max(1, width * height)
 
             blob = cv2.dnn.blobFromImage(
                 image,
@@ -439,24 +358,7 @@ def inspect_frames(
                 if label not in allowed_labels:
                     continue
 
-                if label in VEHICLE_LABELS and vehicle_min_area > 0:
-                    area_ratio = ((x2 - x1) * (y2 - y1)) / float(frame_area)
-                    if area_ratio < vehicle_min_area:
-                        # Usually a distant vehicle seen through the street
-                        # portion of an internal camera.
-                        continue
-
                 labels[label] = max(labels.get(label, 0.0), confidence)
-
-        if labels:
-            # Some objects are context only and must never be an isolated
-            # trigger. A bicycle, for example, only matters when a person is
-            # also visible; a parked/falling/wind-moved bicycle is discarded.
-            dependent = _person_dependent_labels(cam)
-            if "person" not in labels:
-                for label in tuple(labels):
-                    if label in dependent:
-                        labels.pop(label, None)
 
         if labels:
             ordered = tuple(
@@ -467,49 +369,11 @@ def inspect_frames(
                     reverse=True,
                 )
             )
-
-            # On selected gate-facing cameras, vehicles alone are not enough:
-            # a car simply passing along the street should be ignored.
-            # A privacy-safe structural reference lets us still catch a gate
-            # that moved or remained open after the vehicle left the scene.
-            if _vehicle_requires_gate_change(cam) and not any(
-                label in {"person", "bicycle", "cat", "dog"}
-                for label in ordered
-            ):
-                ref_state, ratio = _gate_reference_check(
-                    images,
-                    dynamic_boxes,
-                    cam,
-                    dvr,
-                    channel,
-                )
-                if ref_state in {"different", "moving"}:
-                    return PrefilterDecision(
-                        True,
-                        labels=ordered,
-                        max_confidence=max(labels.values()),
-                        reason=f"gate_{ref_state}:{ratio:.4f}",
-                    )
-                if ref_state in {"learning", "learned", "unavailable"}:
-                    return PrefilterDecision(
-                        True,
-                        labels=ordered,
-                        max_confidence=max(labels.values()),
-                        reason=f"gate_reference_{ref_state}_fail_open",
-                        fail_open=True,
-                    )
-                return PrefilterDecision(
-                    False,
-                    labels=ordered,
-                    max_confidence=max(labels.values()),
-                    reason=f"street_vehicle_gate_closed:{ratio:.4f}",
-                )
-
             return PrefilterDecision(
                 True,
                 labels=ordered,
                 max_confidence=max(labels.values()),
-                reason="relevant_object_detected",
+                reason="semantic_trigger_detected",
             )
 
         if _gate_watch(cam):
