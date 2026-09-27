@@ -25,9 +25,11 @@ from common import (
     load_json,
     make_contact_sheet,
     now_local,
+    record_prefilter_result,
     safe_remove,
     set_state,
 )
+from prefilter import inspect_frames
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -194,6 +196,32 @@ def process_event(
                 count=4,
                 rotate=int(cam.get("rotate", 0)),
             )
+
+        decision = inspect_frames(frames, cam)
+        record_prefilter_result(
+            dvr,
+            channel,
+            passed=decision.should_analyze,
+            fail_open=decision.fail_open,
+        )
+
+        if not decision.should_analyze:
+            log.info(
+                "Pré-filtro local descartou evento %s camera=%s motivo=%s",
+                key,
+                cam["name"],
+                decision.reason,
+            )
+            return
+
+        log.info(
+            "Pré-filtro liberou evento %s camera=%s labels=%s conf=%.2f motivo=%s",
+            key,
+            cam["name"],
+            ",".join(decision.labels) if decision.labels else "-",
+            decision.max_confidence,
+            decision.reason,
+        )
 
         make_contact_sheet(frames, sheet)
         triage = analyze(sheet, cam, dvr, channel, "triage")
