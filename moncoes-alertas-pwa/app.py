@@ -28,6 +28,21 @@ VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
 
+CRITICAL_TITLES = {
+    "garage_gate_open": "🚨 Portão de garagem aberto",
+    "forced_access_attempt": "🚨 Tentativa de acesso forçado",
+    "energy_room_object_removal": "🚨 Alerta — sala de energia",
+    "vandalism": "🚨 Alerta de vandalismo",
+    "violence_or_harassment": "🚨 Possível violência ou assédio",
+    "other_safety_risk": "🚨 Alerta crítico de segurança",
+}
+
+REVIEW_TITLES = {
+    "technical_area_access": "🔎 Revisão — acesso à área técnica",
+    "pedestrian_garage_access": "🔎 Revisão — pedestre no portão da garagem",
+    "unauthorized_access_suspected": "🔎 Revisão — acesso possivelmente irregular",
+}
+
 DATA.mkdir(parents=True, exist_ok=True)
 REPORTS.mkdir(parents=True, exist_ok=True)
 
@@ -495,13 +510,27 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
         event_id = cur.lastrowid
 
     push_sent = 0
-    if body.status == "critical" and body.notify_external:
+    if body.notify_external:
         location = body.camera or "área monitorada"
-        push_sent = send_push(
-            "⚠️ Alerta crítico — Monções",
-            f"Alerta crítico detectado em {location}. Toque para abrir os detalhes.",
-            f"/?event={event_id}",
-        )
+        if body.status == "critical":
+            title = CRITICAL_TITLES.get(
+                body.category or "",
+                "🚨 Alerta crítico — Monções",
+            )
+            push_sent = send_push(
+                title,
+                f"{location}. Toque para abrir os detalhes e revisar imediatamente.",
+                f"/?event={event_id}",
+            )
+        elif (
+            body.status in {"potential_occurrence", "uncertain"}
+            and (body.category or "") in REVIEW_TITLES
+        ):
+            push_sent = send_push(
+                REVIEW_TITLES[body.category or ""],
+                f"{location}. Situação registrada para revisão humana.",
+                f"/?event={event_id}",
+            )
     return {"ok": True, "id": event_id, "duplicate": False, "push_sent": push_sent}
 
 
