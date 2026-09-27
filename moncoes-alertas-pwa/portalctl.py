@@ -64,7 +64,7 @@ def main():
         print(f"Aparelho {sys.argv[2]} revogado.")
     elif cmd == "rotate-invite":
         need_root()
-        new = secrets.token_hex(4).upper()
+        new = secrets.token_hex(8).upper()
         lines = ENV.read_text().splitlines()
         lines = [
             f"DEVICE_INVITE_CODE={new}" if x.startswith("DEVICE_INVITE_CODE=") else x
