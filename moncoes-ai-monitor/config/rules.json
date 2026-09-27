@@ -1,12 +1,70 @@
 {
-  "PERIMETER": {"reference":"Segurança/perímetro","text":"Câmeras voltadas à rua servem prioritariamente para segurança e contexto; comportamento normal em via pública não deve ser tratado como infração condominial."},
-  "GARAGE_GATE": {"reference":"Regulamento Interno, Cap. IV, Art. 19, item 8","text":"Ao entrar ou sair da garagem, o condômino deve aguardar o fechamento completo do portão."},
-  "STRANGERS_ACCESS": {"reference":"Regulamento Interno, Art. 21","text":"A entrada de pessoas estranhas ao condomínio somente pode ocorrer mediante autorização do residente."},
-  "DELIVERIES_SERVICES": {"reference":"Regulamento Interno, Art. 17, §8","text":"Entregadores devem ser recebidos no portão externo. Prestadores de serviço somente devem entrar se acompanhados pelos condôminos, tanto na entrada quanto na saída."},
-  "COMMON_AREAS": {"reference":"Regulamento Interno, Art. 17, §§9-10","text":"É proibida a circulação e permanência de animais nas áreas comuns e andar de bicicleta, patins ou skate nas áreas comuns."},
-  "BICYCLES": {"reference":"Regulamento Interno, Cap. IV, Art. 19, item 7","text":"O estacionamento de bicicletas deve ocorrer somente na área específica destinada a tal finalidade; a simples presença de bicicleta deve ser tratada com cautela quando a câmera puder mostrar a área destinada a bicicletas."},
-  "GARAGE_USE": {"reference":"Regulamento Interno, Cap. IV, Art. 19, itens 2-5","text":"Na garagem é vedado estacionar impedindo ou dificultando manobras; guardar móveis, utensílios e sobressalentes; permitir permanência de crianças, trânsito de bicicletas, jogos ou esportes; e executar reparos, lavagem de veículos, montagem de móveis, pintura ou serviços semelhantes."},
-  "ELEVATOR": {"reference":"Regulamento Interno, Art. 17, §7","text":"É proibido fumar nos elevadores."},
-  "TECHNICAL_AREA": {"reference":"Segurança operacional","text":"Sinalizar apenas acesso ou permanência claramente atípicos; não inferir autorização quando a imagem não permitir confirmar o contexto."},
-  "DISCIPLINE": {"reference":"Regulamento Interno, Art. 22","text":"O sistema não aplica sanções. O Regulamento prevê advertência escrita e multa na reincidência; qualquer decisão disciplinar depende de revisão humana pela administração."}
+  "PERIMETER": {
+    "reference": "Segurança/perímetro",
+    "text": "Câmeras voltadas à rua servem prioritariamente para segurança e contexto; comportamento normal em via pública não deve ser tratado como infração condominial."
+  },
+  "GARAGE_GATE": {
+    "reference": "Regulamento Interno, Cap. IV, Art. 19, item 8",
+    "text": "Ao entrar ou sair da garagem, o condômino deve aguardar o fechamento completo do portão."
+  },
+  "STRANGERS_ACCESS": {
+    "reference": "Regulamento Interno, Art. 21",
+    "text": "A entrada de pessoas estranhas ao condomínio somente pode ocorrer mediante autorização do residente."
+  },
+  "DELIVERIES_SERVICES": {
+    "reference": "Regulamento Interno, Art. 17, §8",
+    "text": "Entregadores devem ser recebidos no portão externo. Prestadores de serviço somente devem entrar se acompanhados pelos condôminos, tanto na entrada quanto na saída."
+  },
+  "COMMON_AREAS": {
+    "reference": "Regulamento Interno, Art. 17, §§9-10",
+    "text": "É proibida a circulação e permanência de animais nas áreas comuns e andar de bicicleta, patins ou skate nas áreas comuns."
+  },
+  "BICYCLES": {
+    "reference": "Regulamento Interno, Cap. IV, Art. 19, item 7",
+    "text": "O estacionamento de bicicletas deve ocorrer somente na área específica destinada a tal finalidade; a simples presença de bicicleta deve ser tratada com cautela quando a câmera puder mostrar a área destinada a bicicletas."
+  },
+  "GARAGE_USE": {
+    "reference": "Regulamento Interno, Cap. IV, Art. 19, itens 2-5",
+    "text": "Na garagem é vedado estacionar impedindo ou dificultando manobras; guardar móveis, utensílios e sobressalentes; permitir permanência de crianças, trânsito de bicicletas, jogos ou esportes; e executar reparos, lavagem de veículos, montagem de móveis, pintura ou serviços semelhantes."
+  },
+  "ELEVATOR": {
+    "reference": "Regulamento Interno, Art. 17, §7",
+    "text": "É proibido fumar nos elevadores."
+  },
+  "TECHNICAL_AREA": {
+    "reference": "Segurança operacional",
+    "text": "Sinalizar apenas acesso ou permanência claramente atípicos; não inferir autorização quando a imagem não permitir confirmar o contexto."
+  },
+  "DISCIPLINE": {
+    "reference": "Regulamento Interno, Art. 22",
+    "text": "O sistema não aplica sanções. O Regulamento prevê advertência escrita e multa na reincidência; qualquer decisão disciplinar depende de revisão humana pela administração."
+  },
+  "GARAGE_AUTO_CLOSE_8S": {
+    "reference": "Diretriz operacional da administração — fechamento automático dos portões",
+    "text": "Os portões de garagem são programados para fechamento automático após aproximadamente 8 segundos. Se, depois de concluída a passagem e sem obstáculo aparente no vão, o portão permanecer visivelmente aberto além desse intervalo, tratar como risco crítico de segurança e solicitar verificação imediata."
+  },
+  "GARAGE_PEDESTRIAN": {
+    "reference": "Diretriz operacional da administração — circulação de pedestres",
+    "text": "Não é permitida a entrada ou saída de pedestres pelos portões de veículos das garagens. Quando visualmente claro, classificar como potencial ocorrência para revisão; elevar a crítico se houver tentativa de burlar, forçar ou aproveitar abertura de forma compatível com invasão."
+  },
+  "FORCED_ACCESS": {
+    "reference": "Diretriz operacional de segurança — tentativa de acesso forçado",
+    "text": "Movimentos compatíveis com tentativa de arrombar, forçar, puxar, empurrar, golpear, manipular fechaduras, trincos, portões ou portas de acesso devem ser tratados como críticos quando houver evidência visual objetiva."
+  },
+  "ENERGY_ROOM": {
+    "reference": "Diretriz operacional de segurança — salas de energia",
+    "text": "A câmera da área do bicicletário pode visualizar a porta das salas de energia quando aberta. Pessoa saindo dessa sala portando, retirando ou transportando objeto, equipamento, peça ou material deve gerar alerta crítico para revisão imediata, sem afirmar furto ou intenção."
+  },
+  "TECHNICAL_ACCESS": {
+    "reference": "Diretriz operacional de segurança — casa de máquinas / área técnica",
+    "text": "Qualquer pessoa visualmente presente ou acessando a área técnica da casa de máquinas deve gerar ao menos potencial ocorrência para revisão humana, pois o acesso é controlado. Forçamento, dano, retirada de objetos ou outra situação de risco eleva para crítico."
+  },
+  "VANDALISM": {
+    "reference": "Diretriz operacional de segurança — proteção do patrimônio",
+    "text": "Ações visualmente compatíveis com danificar, golpear, riscar, quebrar, chutar, arrancar, depredar ou vandalizar elevador, portas, portões, paredes, equipamentos ou qualquer área comum devem ser classificadas como críticas."
+  },
+  "VIOLENCE_HARASSMENT": {
+    "reference": "Diretriz operacional de segurança — violência e assédio",
+    "text": "Sinais ou movimentos visualmente compatíveis com possível violência, agressão física, luta, contenção forçada, perseguição ameaçadora, contato físico aparentemente não consentido ou assédio físico devem ser classificados como críticos e revisados imediatamente. Descrever apenas os movimentos observáveis, sem afirmar intenção ou culpa."
+  }
 }
