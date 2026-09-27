@@ -8,6 +8,7 @@ import signal
 import threading
 import time
 from datetime import datetime, timedelta
+from urllib.parse import quote, urlencode
 
 import requests
 from requests.auth import HTTPDigestAuth
@@ -304,10 +305,13 @@ def listener_dvr100():
 
 
 def api_get(host: str, params: dict) -> str:
-    url = f"http://{host}/cgi-bin/mediaFileFind.cgi"
+    # Alguns firmwares Intelbras/Dahua rejeitam '+' como separador de espaço
+    # nos horários do mediaFileFind. Forçamos percent-encoding (%20), igual
+    # à sintaxe que já foi validada diretamente neste DVR.
+    base_url = f"http://{host}/cgi-bin/mediaFileFind.cgi"
+    query = urlencode(params, doseq=True, quote_via=quote)
     response = requests.get(
-        url,
-        params=params,
+        f"{base_url}?{query}",
         auth=HTTPDigestAuth(USER, PASSWORD),
         timeout=30,
     )
@@ -335,7 +339,7 @@ def search_motion(
             {
                 "action": "findFile",
                 "object": obj,
-                "condition.Channel": max(0, physical_channel - 1),
+                "condition.Channel": physical_channel,
                 "condition.StartTime": start.strftime("%Y-%m-%d %H:%M:%S"),
                 "condition.EndTime": end.strftime("%Y-%m-%d %H:%M:%S"),
                 "condition.Types[0]": "dav",
