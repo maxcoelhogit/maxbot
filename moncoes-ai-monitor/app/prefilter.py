@@ -10,6 +10,7 @@ log = logging.getLogger("moncoes-prefilter")
 
 BASE = Path(os.getenv("MONCOES_BASE", "/opt/moncoes-ai"))
 MODEL_DIR = BASE / "models"
+GATE_REF_DIR = BASE / "data" / "gate_refs"
 MODEL_PATH = Path(
     os.getenv(
         "PREFILTER_MODEL_PATH",
@@ -141,6 +142,122 @@ def _vehicle_requires_gate_change(cam: dict) -> bool:
     return bool(cam.get("prefilter_vehicle_requires_gate_change", False))
 
 
+def _gate_reference_threshold(cam: dict) -> float:
+    value = cam.get("prefilter_gate_reference_threshold", 0.012)
+    return max(0.003, min(float(value), 0.15))
+
+
+def _edge_map(image):
+    import cv2
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    return cv2.Canny(gray, 55, 130)
+
+
+def _masked_edge_difference(
+    edge_a,
+    edge_b,
+    boxes: list[tuple[int, int, int, int]],
+) -> float:
+    import cv2
+    import numpy as np
+
+    h, w = edge_a.shape[:2]
+    if edge_b.shape[:2] != (h, w):
+        edge_b = cv2.resize(edge_b, (w, h))
+
+    valid = np.ones((h, w), dtype=np.uint8)
+    for box in boxes:
+        x1, y1, x2, y2 = _expanded_box(box, w, h, pad_ratio=0.12)
+        valid[y1:y2, x1:x2] = 0
+
+    border_x = max(2, int(w * 0.02))
+    border_y = max(2, int(h * 0.02))
+    valid[:border_y, :] = 0
+    valid[-border_y:, :] = 0
+    valid[:, :border_x] = 0
+    valid[:, -border_x:] = 0
+
+    xor = cv2.bitwise_xor(edge_a, edge_b)
+    changed = (xor > 0).astype(np.uint8)
+    valid_pixels = int(valid.sum())
+    if valid_pixels <= 0:
+        return 0.0
+    return float((changed * valid).sum()) / float(valid_pixels)
+
+
+def _gate_reference_check(
+    images: list,
+    dynamic_boxes: list[list[tuple[int, int, int, int]]],
+    cam: dict,
+    dvr: str | None,
+    channel: int | None,
+) -> tuple[str, float]:
+    """Compare the current fixed scene with a privacy-safe edge reference.
+
+    The reference stores only a binary edge map, not a camera photograph.
+    Until a clean/stable reference is learned, the gate camera fails open and
+    keeps sending events to the main AI pipeline.
+    """
+    if not _gate_watch(cam) or not dvr or channel is None or not images:
+        return "not_applicable", 0.0
+
+    import cv2
+
+    valid_images = [img for img in images if img is not None]
+    if len(valid_images) < 2:
+        return "unavailable", 0.0
+
+    first = valid_images[0]
+    last = valid_images[-1]
+    first_edge = _edge_map(first)
+    last_edge = _edge_map(last)
+
+    all_boxes = []
+    for boxes in dynamic_boxes:
+        all_boxes.extend(boxes)
+
+    temporal_ratio = _masked_edge_difference(
+        first_edge,
+        last_edge,
+        all_boxes,
+    )
+
+    GATE_REF_DIR.mkdir(parents=True, exist_ok=True)
+    ref_path = GATE_REF_DIR / f"{dvr}_{channel}.png"
+
+    if not ref_path.is_file():
+        # Learn only from a stable, object-free end frame. Until then the
+        # security path remains fail-open (OpenAI still sees the event).
+        if not dynamic_boxes[-1] and temporal_ratio < 0.010:
+            cv2.imwrite(str(ref_path), last_edge)
+            log.info(
+                "Referência estrutural do portão aprendida DVR%s cam%s",
+                dvr,
+                channel,
+            )
+            return "learned", temporal_ratio
+        return "learning", temporal_ratio
+
+    ref_edge = cv2.imread(str(ref_path), cv2.IMREAD_GRAYSCALE)
+    if ref_edge is None:
+        return "unavailable", temporal_ratio
+
+    current_ratio = _masked_edge_difference(
+        ref_edge,
+        last_edge,
+        dynamic_boxes[-1],
+    )
+    if current_ratio >= _gate_reference_threshold(cam):
+        return "different", max(current_ratio, temporal_ratio)
+
+    if temporal_ratio >= _gate_motion_threshold(cam):
+        return "moving", temporal_ratio
+
+    return "closed_like_reference", max(current_ratio, temporal_ratio)
+
+
 def _expanded_box(
     box: tuple[int, int, int, int],
     width: int,
@@ -216,7 +333,12 @@ def _gate_scene_changed(
     return ratio >= threshold, ratio
 
 
-def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
+def inspect_frames(
+    frames: list[Path],
+    cam: dict,
+    dvr: str | None = None,
+    channel: int | None = None,
+) -> PrefilterDecision:
     """Cheap local semantic gate before any OpenAI request.
 
     Fail-open is deliberate: a missing/corrupt local model, OpenCV failure or
@@ -327,28 +449,39 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
 
             # On selected gate-facing cameras, vehicles alone are not enough:
             # a car simply passing along the street should be ignored.
-            # People (and other explicitly relevant classes) always pass.
+            # A privacy-safe structural reference lets us still catch a gate
+            # that moved or remained open after the vehicle left the scene.
             if _vehicle_requires_gate_change(cam) and not any(
                 label in {"person", "bicycle", "cat", "dog"}
                 for label in ordered
             ):
-                changed, ratio = _gate_scene_changed(
+                ref_state, ratio = _gate_reference_check(
                     images,
                     dynamic_boxes,
-                    _gate_motion_threshold(cam),
+                    cam,
+                    dvr,
+                    channel,
                 )
-                if changed:
+                if ref_state in {"different", "moving"}:
                     return PrefilterDecision(
                         True,
                         labels=ordered,
                         max_confidence=max(labels.values()),
-                        reason=f"gate_scene_changed:{ratio:.4f}",
+                        reason=f"gate_{ref_state}:{ratio:.4f}",
+                    )
+                if ref_state in {"learning", "learned", "unavailable"}:
+                    return PrefilterDecision(
+                        True,
+                        labels=ordered,
+                        max_confidence=max(labels.values()),
+                        reason=f"gate_reference_{ref_state}_fail_open",
+                        fail_open=True,
                     )
                 return PrefilterDecision(
                     False,
                     labels=ordered,
                     max_confidence=max(labels.values()),
-                    reason=f"street_vehicle_without_gate_change:{ratio:.4f}",
+                    reason=f"street_vehicle_gate_closed:{ratio:.4f}",
                 )
 
             return PrefilterDecision(
@@ -359,17 +492,27 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
             )
 
         if _gate_watch(cam):
-            changed, ratio = _gate_scene_changed(
+            ref_state, ratio = _gate_reference_check(
                 images,
                 dynamic_boxes,
-                _gate_motion_threshold(cam),
+                cam,
+                dvr,
+                channel,
             )
-            if changed:
+            if ref_state in {"different", "moving"}:
                 return PrefilterDecision(
                     True,
                     labels=(),
                     max_confidence=0.0,
-                    reason=f"gate_scene_changed_without_object:{ratio:.4f}",
+                    reason=f"gate_{ref_state}_without_object:{ratio:.4f}",
+                )
+            if ref_state in {"learning", "learned", "unavailable"}:
+                return PrefilterDecision(
+                    True,
+                    labels=(),
+                    max_confidence=0.0,
+                    reason=f"gate_reference_{ref_state}_fail_open",
+                    fail_open=True,
                 )
 
         return PrefilterDecision(
