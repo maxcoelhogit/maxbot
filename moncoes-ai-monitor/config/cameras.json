@@ -12,7 +12,8 @@
           "PERIMETER",
           "VIOLENCE_HARASSMENT",
           "VANDALISM"
-        ]
+        ],
+        "prefilter_confidence": 0.18
       },
       "2": {
         "name": "Rua / calçada - sentido B",
@@ -23,7 +24,8 @@
           "PERIMETER",
           "VIOLENCE_HARASSMENT",
           "VANDALISM"
-        ]
+        ],
+        "prefilter_confidence": 0.18
       },
       "3": {
         "name": "Portão de veículos / acesso frontal",
@@ -39,7 +41,8 @@
           "GARAGE_PEDESTRIAN",
           "FORCED_ACCESS"
         ],
-        "capture_seconds": 16
+        "capture_seconds": 16,
+        "prefilter_always_analyze": true
       },
       "4": {
         "name": "Garagem interna",
@@ -53,7 +56,8 @@
           "GARAGE_PEDESTRIAN",
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
-        ]
+        ],
+        "prefilter_confidence": 0.15
       },
       "5": {
         "name": "Hall do elevador / térreo",
@@ -66,7 +70,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "FORCED_ACCESS"
-        ]
+        ],
+        "prefilter_confidence": 0.14
       },
       "6": {
         "name": "Entrada social / caixas de correio",
@@ -80,7 +85,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "FORCED_ACCESS"
-        ]
+        ],
+        "prefilter_confidence": 0.14
       },
       "7": {
         "name": "Garagem interna - área ampla",
@@ -94,7 +100,8 @@
           "GARAGE_PEDESTRIAN",
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
-        ]
+        ],
+        "prefilter_confidence": 0.15
       },
       "8": {
         "name": "Garagem interna - outro ângulo",
@@ -108,7 +115,8 @@
           "GARAGE_PEDESTRIAN",
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
-        ]
+        ],
+        "prefilter_confidence": 0.15
       }
     }
   },
@@ -128,7 +136,8 @@
           "VANDALISM",
           "ENERGY_ROOM",
           "FORCED_ACCESS"
-        ]
+        ],
+        "prefilter_confidence": 0.14
       },
       "2": {
         "name": "Área técnica / medidores",
@@ -141,7 +150,8 @@
           "VANDALISM",
           "TECHNICAL_ACCESS",
           "FORCED_ACCESS"
-        ]
+        ],
+        "prefilter_confidence": 0.12
       },
       "3": {
         "name": "Interior do elevador",
@@ -153,7 +163,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "FORCED_ACCESS"
-        ]
+        ],
+        "prefilter_confidence": 0.14
       },
       "4": {
         "name": "Canal sem imagem útil",
