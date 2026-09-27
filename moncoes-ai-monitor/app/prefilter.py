@@ -205,18 +205,20 @@ def _gate_reference_check(
 
     import cv2
 
-    valid_images = [img for img in images if img is not None]
-    if len(valid_images) < 2:
+    valid_indexes = [i for i, img in enumerate(images) if img is not None]
+    if len(valid_indexes) < 2:
         return "unavailable", 0.0
 
-    first = valid_images[0]
-    last = valid_images[-1]
+    first_idx = valid_indexes[0]
+    last_idx = valid_indexes[-1]
+    first = images[first_idx]
+    last = images[last_idx]
     first_edge = _edge_map(first)
     last_edge = _edge_map(last)
 
     all_boxes = []
-    for boxes in dynamic_boxes:
-        all_boxes.extend(boxes)
+    for idx in valid_indexes:
+        all_boxes.extend(dynamic_boxes[idx])
 
     temporal_ratio = _masked_edge_difference(
         first_edge,
@@ -230,7 +232,7 @@ def _gate_reference_check(
     if not ref_path.is_file():
         # Learn only from a stable, object-free end frame. Until then the
         # security path remains fail-open (OpenAI still sees the event).
-        if not dynamic_boxes[-1] and temporal_ratio < 0.010:
+        if not dynamic_boxes[last_idx] and temporal_ratio < 0.010:
             cv2.imwrite(str(ref_path), last_edge)
             log.info(
                 "Referência estrutural do portão aprendida DVR%s cam%s",
@@ -247,7 +249,7 @@ def _gate_reference_check(
     current_ratio = _masked_edge_difference(
         ref_edge,
         last_edge,
-        dynamic_boxes[-1],
+        dynamic_boxes[last_idx],
     )
     if current_ratio >= _gate_reference_threshold(cam):
         return "different", max(current_ratio, temporal_ratio)
