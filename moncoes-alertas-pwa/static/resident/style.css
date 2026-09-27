@@ -259,6 +259,23 @@ button{font:inherit}.hidden{display:none!important}
   background:var(--green-soft);color:var(--green);font-size:10px;font-weight:900;flex:0 0 auto
 }
 .privacy-grid p{margin:1px 0 0;font-size:10.8px;line-height:1.4;color:#756a63}
+.coi-card{
+  background:linear-gradient(135deg,#f3eee8,#fffdfa);
+  border-color:#e0d5ca;
+}
+.coi-card h2{display:flex;align-items:center;gap:7px}
+.coi-card h2::before{
+  content:"◆";
+  color:var(--sand);
+  font-size:11px;
+}
+.fine-print{
+  margin-top:9px!important;
+  padding-top:9px;
+  border-top:1px solid var(--line);
+  font-size:10.5px!important;
+  color:#8b8079!important;
+}
 .note-card{background:#fbf5e9;border-color:#eadcc4}
 .note-card strong{color:#755c37}.note-card p{margin-top:4px}
 
