@@ -51,7 +51,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "GARAGE_PEDESTRIAN",
-          "FORCED_ACCESS"
+          "FORCED_ACCESS",
+          "GARAGE_AUTO_CLOSE_8S"
         ]
       },
       "5": {
@@ -91,7 +92,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "GARAGE_PEDESTRIAN",
-          "FORCED_ACCESS"
+          "FORCED_ACCESS",
+          "GARAGE_AUTO_CLOSE_8S"
         ]
       },
       "8": {
@@ -104,7 +106,8 @@
           "VIOLENCE_HARASSMENT",
           "VANDALISM",
           "GARAGE_PEDESTRIAN",
-          "FORCED_ACCESS"
+          "FORCED_ACCESS",
+          "GARAGE_AUTO_CLOSE_8S"
         ]
       }
     }
