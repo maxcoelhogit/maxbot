@@ -10,9 +10,26 @@ from pydantic import BaseModel, Field
 from common import CONFIG_DIR, data_url, load_json
 
 
+EventCategory = Literal[
+    "normal_activity",
+    "garage_gate_open",
+    "pedestrian_garage_access",
+    "forced_access_attempt",
+    "energy_room_object_removal",
+    "technical_area_access",
+    "vandalism",
+    "violence_or_harassment",
+    "unauthorized_access_suspected",
+    "rule_violation",
+    "other_safety_risk",
+    "uncertain_context",
+    "ai_disabled",
+]
+
+
 class Analysis(BaseModel):
     status: Literal["normal", "potential_occurrence", "critical", "uncertain"]
-    category: str = Field(description="Categoria curta e objetiva")
+    category: EventCategory = Field(description="Categoria operacional padronizada")
     confidence: float = Field(ge=0.0, le=1.0)
     description: str = Field(description="Descrição apenas do que é visualmente observável")
     rule_reference: str = Field(description="Regra potencialmente relacionada ou 'nenhuma'")
@@ -23,12 +40,29 @@ class Analysis(BaseModel):
 RULES = load_json(CONFIG_DIR / "rules.json")
 
 SYSTEM = """Você é o classificador visual do Condomínio Edifício Monções.
-Seja conservador e objetivo. Não identifique pessoas e não tente reconhecer rostos.
+Seja objetivo e descreva somente evidências visuais. Não identifique pessoas e não tente reconhecer rostos.
 Não infira identidade, intenção, vínculo, autorização, raça, religião, saúde ou qualquer atributo sensível.
-Não aplique advertência ou multa. 'potential_occurrence' significa apenas 'potencial ocorrência — requer revisão do síndico'.
+Não aplique advertência ou multa. 'potential_occurrence' significa apenas 'potencial ocorrência — requer revisão humana'.
 Considere os quatro quadrantes da imagem como momentos sucessivos do mesmo evento.
-Use somente o que está visualmente observável. Se a evidência não permitir concluir, prefira 'uncertain'.
-Para atividade rotineira, use 'normal'. 'critical' é reservado a perigo ou risco de segurança aparente e imediato.
+
+REGRAS DE SEVERIDADE:
+- 'critical' deve ser usado quando a imagem mostrar sinais ou movimentos razoavelmente compatíveis com perigo ou risco imediato de segurança, inclusive:
+  1) possível violência física, agressão, luta, contenção forçada, perseguição ameaçadora, contato físico aparentemente não consentido ou assédio físico;
+  2) tentativa aparente de arrombar, forçar, golpear ou manipular portões, portas, fechaduras ou acessos;
+  3) dano, depredação ou vandalismo aparente em elevador, portões, portas, paredes, equipamentos ou áreas comuns;
+  4) pessoa saindo de sala de energia portando ou retirando objeto/equipamento/material;
+  5) portão de garagem que permaneça visivelmente aberto além do ciclo esperado de aproximadamente 8 segundos, após a passagem parecer concluída e sem veículo/obstáculo aparente impedindo o fechamento;
+  6) outro risco imediato de segurança claramente visível.
+- 'potential_occurrence' deve ser usado para situações que exigem revisão, mas não mostram risco imediato, inclusive:
+  1) pedestre entrando ou saindo pelo portão de veículos da garagem;
+  2) qualquer pessoa acessando ou permanecendo na área técnica/casa de máquinas;
+  3) acesso possivelmente irregular quando a imagem não permite confirmar autorização.
+- 'uncertain' é para evidência insuficiente ou ambígua que não se encaixe com segurança nos casos acima.
+- 'normal' é para atividade rotineira sem indício relevante.
+
+Quando houver padrão visual compatível com violência ou assédio físico, não suavize para 'uncertain' apenas porque a intenção não pode ser inferida: classifique como 'critical', descrevendo de forma neutra como 'movimentos compatíveis com possível ...' e marque needs_human_review=true.
+Quando houver retirada de objeto de sala de energia, não afirme furto; descreva somente a retirada/transporte observado.
+Quando o portão aparecer aberto em apenas um momento, não conclua falha de fechamento. Para 'garage_gate_open' crítico, use a sequência temporal e exija persistência visual após a passagem.
 """
 
 
@@ -69,6 +103,10 @@ DVR: {dvr}; câmera física: {channel}; local: {camera['name']}; prioridade: {ca
 Regras relevantes:
 {camera_context(camera)}
 Classifique somente a evidência visual. A imagem é uma montagem 2x2 em ordem temporal.
+Use uma destas categorias exatamente: normal_activity, garage_gate_open, pedestrian_garage_access,
+forced_access_attempt, energy_room_object_removal, technical_area_access, vandalism,
+violence_or_harassment, unauthorized_access_suspected, rule_violation, other_safety_risk,
+uncertain_context.
 """
 
     response = client.responses.parse(
