@@ -1,0 +1,12 @@
+{
+  "name": "Monções Alertas",
+  "short_name": "Monções",
+  "description": "Alertas e relatórios do sistema de segurança assistida por IA do Condomínio Edifício Monções.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071019",
+  "theme_color": "#0b1520",
+  "icons": [
+    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
