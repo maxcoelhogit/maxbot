@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -102,6 +103,21 @@ def run(cmd: list[str], timeout: int = 90, check: bool = True) -> subprocess.Com
     )
 
 
+def redact_secrets(text: str, *secrets_to_hide: str) -> str:
+    """Remove credenciais de mensagens antes de gravar log/banco."""
+    value = text or ""
+    for secret in secrets_to_hide:
+        if secret:
+            value = value.replace(secret, "***")
+    value = re.sub(
+        r"(rtsp://[^:/@\s]+:)[^@\s]+(@)",
+        r"\1***\2",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return value
+
+
 def rtsp_url(host: str, user: str, password: str, channel: int, subtype: int = 0) -> str:
     return (
         f"rtsp://{user}:{password}@{host}:554/cam/realmonitor"
@@ -157,7 +173,9 @@ def capture_live_frames(
     result = run(cmd, timeout=max(45, seconds + 30), check=False)
     frames = sorted(out_dir.glob("frame_*.jpg"))
     if result.returncode != 0 or not frames:
-        raise RuntimeError(f"Falha FFmpeg live: {result.stderr[-600:]}")
+        raise RuntimeError(
+            f"Falha FFmpeg live: {redact_secrets(result.stderr[-600:], password)}"
+        )
     return frames
 
 
@@ -187,7 +205,9 @@ def capture_playback_frames(
     result = run(cmd, timeout=50, check=False)
     frames = sorted(out_dir.glob("frame_*.jpg"))
     if result.returncode != 0 or not frames:
-        raise RuntimeError(f"Falha FFmpeg playback: {result.stderr[-600:]}")
+        raise RuntimeError(
+            f"Falha FFmpeg playback: {redact_secrets(result.stderr[-600:], password)}"
+        )
     return frames
 
 
