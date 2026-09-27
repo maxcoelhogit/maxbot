@@ -1,0 +1,17 @@
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eaf2f7;background:#071019;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#0b1722 0,#071019 45%);min-height:100vh}
+.shell{max-width:860px;margin:0 auto;padding:22px 16px 80px}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:12px}.mark{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:#d8b65f;color:#0b1520;font-weight:900;font-size:24px}
+h1,h2,p{margin:0}h1{font-size:20px}header p,.subtle{color:#91a3b1;font-size:13px;margin-top:3px}
+.card{background:rgba(16,31,43,.96);border:1px solid #20384a;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 14px 45px rgba(0,0,0,.16)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid .card{margin:0 0 14px}
+.badge{padding:7px 10px;border-radius:999px;font-size:12px;font-weight:700}.badge.good{background:#123b2f;color:#82e5b6}.badge.bad{background:#4a2023;color:#ffadb4}.badge.muted{background:#1a2a37;color:#9eb1bf}
+.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;color:#d8b65f;margin-bottom:6px;font-weight:800}
+h2{font-size:19px}label{display:block;color:#a9bac6;font-size:13px;margin:14px 0 6px}
+input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #294458;background:#0a1721;color:#fff;font-size:16px;margin-top:6px}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:800;font-size:14px;cursor:pointer}.primary,button:not(.secondary){background:#d8b65f;color:#101821}.secondary{background:#172a38;color:#dce8ef;border:1px solid #294458}.small{padding:8px 11px;font-size:12px}
+.actions{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}.hidden{display:none!important}.msg{margin-top:10px;color:#ffb9b9;font-size:13px}
+.health-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.health-item{padding:9px 10px;border-radius:10px;background:#0c1c27;font-size:12px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:#788b98}.dot.ok{background:#49d796}.dot.no{background:#ff6e77}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.list{display:flex;flex-direction:column;gap:9px}.item{background:#0b1a25;border:1px solid #1c3445;border-radius:13px;padding:13px}.item-top{display:flex;justify-content:space-between;gap:12px;align-items:start}.item h3{font-size:14px;margin:0 0 5px}.item p{font-size:13px;color:#a9bac6;line-height:1.4}.pill{white-space:nowrap;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase}.pill.normal{background:#15362d;color:#7cdfad}.pill.critical{background:#5a1d24;color:#ff9da8}.pill.potential_occurrence,.pill.uncertain{background:#493b1a;color:#f1d37d}.ack{margin-top:9px}
+a.report{color:#f1d37d;text-decoration:none;font-weight:700;font-size:13px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}.shell{padding-top:max(18px,env(safe-area-inset-top))}.health-list{grid-template-columns:1fr}header{align-items:flex-start}}
