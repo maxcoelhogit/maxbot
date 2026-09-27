@@ -238,6 +238,7 @@ def process_event(
                 "rule_reference": final.rule_reference,
                 "needs_human_review": final.needs_human_review,
                 "source": source,
+                "notify_external": MODE == "production",
             }
         )
 
