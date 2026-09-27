@@ -48,7 +48,19 @@
           "FORCED_ACCESS"
         ],
         "capture_seconds": 16,
-        "prefilter_always_analyze": true
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "car",
+          "motorcycle",
+          "bus",
+          "truck",
+          "cat",
+          "dog"
+        ],
+        "prefilter_confidence": 0.14,
+        "prefilter_gate_watch": true,
+        "prefilter_gate_motion_threshold": 0.03
       },
       "4": {
         "name": "Garagem interna",
@@ -63,7 +75,20 @@
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
         ],
-        "prefilter_confidence": 0.15
+        "prefilter_confidence": 0.15,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "car",
+          "motorcycle",
+          "bus",
+          "truck",
+          "cat",
+          "dog"
+        ],
+        "prefilter_vehicle_min_area": 0.03,
+        "prefilter_gate_watch": true,
+        "prefilter_gate_motion_threshold": 0.035
       },
       "5": {
         "name": "Hall do elevador / térreo",
@@ -77,7 +102,13 @@
           "VANDALISM",
           "FORCED_ACCESS"
         ],
-        "prefilter_confidence": 0.14
+        "prefilter_confidence": 0.14,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "cat",
+          "dog"
+        ]
       },
       "6": {
         "name": "Entrada social / caixas de correio",
@@ -92,7 +123,13 @@
           "VANDALISM",
           "FORCED_ACCESS"
         ],
-        "prefilter_confidence": 0.14
+        "prefilter_confidence": 0.14,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "cat",
+          "dog"
+        ]
       },
       "7": {
         "name": "Garagem interna - área ampla",
@@ -107,7 +144,20 @@
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
         ],
-        "prefilter_confidence": 0.15
+        "prefilter_confidence": 0.15,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "car",
+          "motorcycle",
+          "bus",
+          "truck",
+          "cat",
+          "dog"
+        ],
+        "prefilter_vehicle_min_area": 0.03,
+        "prefilter_gate_watch": true,
+        "prefilter_gate_motion_threshold": 0.035
       },
       "8": {
         "name": "Garagem interna - outro ângulo",
@@ -122,7 +172,20 @@
           "FORCED_ACCESS",
           "GARAGE_AUTO_CLOSE_8S"
         ],
-        "prefilter_confidence": 0.15
+        "prefilter_confidence": 0.15,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "car",
+          "motorcycle",
+          "bus",
+          "truck",
+          "cat",
+          "dog"
+        ],
+        "prefilter_vehicle_min_area": 0.03,
+        "prefilter_gate_watch": true,
+        "prefilter_gate_motion_threshold": 0.035
       }
     }
   },
@@ -143,7 +206,13 @@
           "ENERGY_ROOM",
           "FORCED_ACCESS"
         ],
-        "prefilter_confidence": 0.14
+        "prefilter_confidence": 0.14,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "cat",
+          "dog"
+        ]
       },
       "2": {
         "name": "Área técnica / medidores",
@@ -157,7 +226,10 @@
           "TECHNICAL_ACCESS",
           "FORCED_ACCESS"
         ],
-        "prefilter_confidence": 0.12
+        "prefilter_confidence": 0.12,
+        "prefilter_classes": [
+          "person"
+        ]
       },
       "3": {
         "name": "Interior do elevador",
@@ -170,7 +242,13 @@
           "VANDALISM",
           "FORCED_ACCESS"
         ],
-        "prefilter_confidence": 0.14
+        "prefilter_confidence": 0.14,
+        "prefilter_classes": [
+          "person",
+          "bicycle",
+          "cat",
+          "dog"
+        ]
       },
       "4": {
         "name": "Canal sem imagem útil",
