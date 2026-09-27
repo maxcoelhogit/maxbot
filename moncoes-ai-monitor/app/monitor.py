@@ -40,6 +40,8 @@ CAMERAS = load_json(CONFIG_DIR / "cameras.json")
 USER = os.getenv("DVR_USER", "admin")
 PASSWORD = os.getenv("DVR_PASS", "")
 DEBOUNCE = int(os.getenv("EVENT_DEBOUNCE_SECONDS", "90"))
+SECURITY_DEBOUNCE = int(os.getenv("SECURITY_EVENT_DEBOUNCE_SECONDS", "20"))
+POLL_MERGE_SECONDS = int(os.getenv("POLL_MERGE_SECONDS", "20"))
 POLL_SECONDS = int(os.getenv("DVR101_POLL_SECONDS", "300"))
 MODE = os.getenv("MONCOES_MODE", "observe")
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "").strip()
@@ -63,7 +65,7 @@ def event_exists_nearby(
     dvr: str,
     channel: int,
     start: datetime,
-    tolerance_seconds: int = DEBOUNCE,
+    tolerance_seconds: int = SECURITY_DEBOUNCE,
 ) -> bool:
     lower = (start - timedelta(seconds=tolerance_seconds)).isoformat()
     upper = (start + timedelta(seconds=tolerance_seconds)).isoformat()
@@ -285,7 +287,7 @@ def schedule_realtime(dvr: str, index: int):
     with lock:
         if key in processing:
             return
-        if current - last_event.get(key, 0) < DEBOUNCE:
+        if current - last_event.get(key, 0) < SECURITY_DEBOUNCE:
             return
         last_event[key] = current
         processing.add(key)
@@ -313,7 +315,7 @@ def schedule_listener_stop(dvr: str, index: int):
     with lock:
         if key in processing:
             return
-        if current - last_event.get(key, 0) < DEBOUNCE:
+        if current - last_event.get(key, 0) < SECURITY_DEBOUNCE:
             return
         last_event[key] = current
         processing.add(key)
@@ -519,7 +521,7 @@ def search_motion(
     for start_dt, end_dt in events:
         if (
             merged
-            and start_dt <= merged[-1][1] + timedelta(seconds=DEBOUNCE)
+            and start_dt <= merged[-1][1] + timedelta(seconds=POLL_MERGE_SECONDS)
         ):
             merged[-1] = (
                 merged[-1][0],
@@ -544,7 +546,7 @@ def poll_dvr(dvr: str):
             else now - timedelta(minutes=10)
         )
         start = max(
-            start - timedelta(seconds=DEBOUNCE),
+            start - timedelta(seconds=SECURITY_DEBOUNCE),
             now - timedelta(minutes=20),
         )
 
