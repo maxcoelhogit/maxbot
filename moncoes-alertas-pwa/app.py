@@ -283,15 +283,32 @@ def public_status_label(status: str | None) -> str:
 
 
 def public_event(row: sqlite3.Row) -> dict[str, Any]:
-    """Only fields intentionally safe for the resident-facing application."""
+    """Return only resident-safe fields and soften sensitive human interactions.
+
+    Human-contact classifications can be useful for the administration while
+    still being too ambiguous to publish as an accusation or emergency to all
+    residents. They therefore appear publicly as a review item until a human
+    has assessed the context.
+    """
+    status = row["status"] or "uncertain"
+    category = row["category"] or ""
+    description = row["description"] or "Evento analisado pela IA."
+
+    if category == "violence_or_harassment":
+        status = "uncertain"
+        description = (
+            "Interação entre pessoas identificada pela IA e encaminhada "
+            "para revisão administrativa. Não há confirmação de irregularidade."
+        )
+
     return {
         "id": row["id"],
         "occurred_at": row["occurred_at"] or row["received_at"],
         "location": row["camera"] or "Área monitorada",
-        "status": row["status"] or "uncertain",
-        "status_label": public_status_label(row["status"]),
-        "category": row["category"] or "",
-        "description": row["description"] or "Evento analisado pela IA.",
+        "status": status,
+        "status_label": public_status_label(status),
+        "category": category,
+        "description": description,
     }
 
 
@@ -425,9 +442,16 @@ def public_status():
         counts = con.execute(
             """SELECT
                  COUNT(*) AS total,
-                 SUM(CASE WHEN status='critical' THEN 1 ELSE 0 END) AS critical,
-                 SUM(CASE WHEN status IN ('potential_occurrence','uncertain')
-                          THEN 1 ELSE 0 END) AS review
+                 SUM(
+                   CASE WHEN status='critical'
+                         AND COALESCE(category,'')!='violence_or_harassment'
+                        THEN 1 ELSE 0 END
+                 ) AS critical,
+                 SUM(
+                   CASE WHEN status IN ('potential_occurrence','uncertain')
+                              OR COALESCE(category,'')='violence_or_harassment'
+                        THEN 1 ELSE 0 END
+                 ) AS review
                FROM events
                WHERE substr(COALESCE(occurred_at,received_at),1,10)=?""",
             (today,),
@@ -756,21 +780,27 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
                 f"{location}. Toque para abrir os detalhes e revisar imediatamente.",
                 f"/?event={event_id}",
             )
-            public_title = {
-                "garage_gate_open": "🚨 Portão de garagem aberto",
-                "forced_access_attempt": "🚨 Possível tentativa de acesso forçado",
-                "energy_room_object_removal": "🚨 Alerta na sala de energia",
-                "vandalism": "🚨 Possível vandalismo",
-                "violence_or_harassment": "🚨 Possível violência ou assédio",
-            }.get(body.category or "", "🚨 Alerta crítico de segurança")
-            description = (body.description or "Situação crítica detectada pela IA.").strip()
-            if len(description) > 180:
-                description = description[:177] + "..."
-            resident_push_sent = send_resident_push(
-                public_title,
-                f"{location}: {description}",
-                f"/seguranca/?event={event_id}",
-            )
+            # Sensitive human interactions are immediately notified to the
+            # administration, but are not broadcast to all residents before
+            # human review. This avoids turning an ambiguous gesture into a
+            # public allegation.
+            if (body.category or "") != "violence_or_harassment":
+                public_title = {
+                    "garage_gate_open": "🚨 Portão de garagem aberto",
+                    "forced_access_attempt": "🚨 Possível tentativa de acesso forçado",
+                    "energy_room_object_removal": "🚨 Alerta na sala de energia",
+                    "vandalism": "🚨 Possível vandalismo",
+                }.get(body.category or "", "🚨 Alerta crítico de segurança")
+                description = (
+                    body.description or "Situação crítica detectada pela IA."
+                ).strip()
+                if len(description) > 180:
+                    description = description[:177] + "..."
+                resident_push_sent = send_resident_push(
+                    public_title,
+                    f"{location}: {description}",
+                    f"/seguranca/?event={event_id}",
+                )
         elif (
             body.status in {"potential_occurrence", "uncertain"}
             and (body.category or "") in REVIEW_TITLES
