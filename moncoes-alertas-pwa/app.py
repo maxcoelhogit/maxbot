@@ -130,6 +130,7 @@ class IngestEvent(BaseModel):
     rule_reference: str | None = None
     needs_human_review: bool = False
     source: str | None = None
+    notify_external: bool = False
 
 
 class HealthBody(BaseModel):
@@ -365,7 +366,7 @@ def ingest_event(body: IngestEvent, _: None = Depends(require_ingest)):
         event_id = cur.lastrowid
 
     push_sent = 0
-    if body.status == "critical":
+    if body.status == "critical" and body.notify_external:
         location = body.camera or "área monitorada"
         push_sent = send_push(
             "⚠️ Alerta crítico — Monções",
