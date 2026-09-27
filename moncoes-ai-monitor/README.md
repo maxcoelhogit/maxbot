@@ -7,6 +7,8 @@ Monitor de CFTV do Condomínio Edifício Monções.
 - DVR `.100`: `VideoMotion` em tempo real via `eventManager.cgi`
 - DVR `.101`: consulta periódica via `mediaFileFind.cgi`
 - FFmpeg: 4 frames por evento e montagem 2x2
+- Pré-filtro local SSD MobileNet/COCO: pessoa, bicicleta, carro, moto, ônibus/caminhão, cão e gato; ruído visual é descartado antes da OpenAI
+- Fail-open: se o pré-filtro local falhar, o evento segue para a IA em vez de ser perdido
 - OpenAI Responses API: triagem com GPT-5.6 Luna; segunda revisão com GPT-5.6 Terra somente em eventos não triviais
 - SQLite local, evidências selecionadas e relatórios PDF
 - systemd: restart automático, health checks, relatórios e retenção
@@ -16,6 +18,7 @@ Monitor de CFTV do Condomínio Edifício Monções.
 - Nenhuma advertência/multa é automática
 - Não faz reconhecimento facial nem identificação de pessoas
 - Credenciais ficam fora do GitHub, em `/etc/moncoes-ai/moncoes.env`
+- A câmera principal do portão frontal ignora o filtro semântico quando necessário, preservando a análise do ciclo de fechamento
 - Antes da produção, criar usuário dedicado nos DVRs e trocar a senha de admin usada nos testes
 
 ## Instalação na VM
