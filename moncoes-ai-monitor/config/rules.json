@@ -16,8 +16,8 @@
     "text": "Entregadores devem ser recebidos no portão externo. Prestadores de serviço somente devem entrar se acompanhados pelos condôminos, tanto na entrada quanto na saída."
   },
   "COMMON_AREAS": {
-    "reference": "Regulamento Interno, Art. 17, §§9-10",
-    "text": "É proibida a circulação e permanência de animais nas áreas comuns e andar de bicicleta, patins ou skate nas áreas comuns."
+    "reference": "Regulamento Interno, Art. 17, §§9-10 + diretriz operacional da administração para animais",
+    "text": "O regulamento trata da circulação e permanência de animais nas áreas comuns e proíbe andar de bicicleta, patins ou skate nas áreas comuns. Para monitoramento por IA, a administração orienta que a simples presença de animal acompanhado não gere ocorrência: considerar normal quando o animal estiver no colo do responsável ou conduzido por guia. Gerar potencial ocorrência para revisão apenas quando o animal estiver solto, sem guia e sem estar no colo, nas áreas comuns."
   },
   "BICYCLES": {
     "reference": "Regulamento Interno, Cap. IV, Art. 19, item 7",
