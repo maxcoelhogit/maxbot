@@ -118,6 +118,15 @@ def _allowed_labels(cam: dict) -> set[str]:
     return set(RELEVANT_CLASSES.values())
 
 
+def _person_dependent_labels(cam: dict) -> set[str]:
+    configured = cam.get("prefilter_require_person_for", ["bicycle"])
+    return {
+        str(label).strip().lower()
+        for label in configured
+        if str(label).strip()
+    }
+
+
 def _always_analyze(cam: dict) -> bool:
     return bool(cam.get("prefilter_always_analyze", False))
 
@@ -438,6 +447,16 @@ def inspect_frames(
                         continue
 
                 labels[label] = max(labels.get(label, 0.0), confidence)
+
+        if labels:
+            # Some objects are context only and must never be an isolated
+            # trigger. A bicycle, for example, only matters when a person is
+            # also visible; a parked/falling/wind-moved bicycle is discarded.
+            dependent = _person_dependent_labels(cam)
+            if "person" not in labels:
+                for label in tuple(labels):
+                    if label in dependent:
+                        labels.pop(label, None)
 
         if labels:
             ordered = tuple(
