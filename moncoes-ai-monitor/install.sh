@@ -22,7 +22,7 @@ if ! id "$SERVICE_USER" >/dev/null 2>&1; then
   useradd --system --home "$BASE" --shell /usr/sbin/nologin "$SERVICE_USER"
 fi
 
-mkdir -p   "$BASE/app" "$BASE/config" "$BASE/data/events" "$BASE/data/evidence"   "$BASE/reports" "$BASE/tmp" "$BASE/logs" "$ETC"
+mkdir -p   "$BASE/app" "$BASE/config" "$BASE/data/events" "$BASE/data/evidence"   "$BASE/reports" "$BASE/tmp" "$BASE/logs" "$BASE/models" "$ETC"
 
 cp -r "$PKG_DIR/app/." "$BASE/app/"
 cp -r "$PKG_DIR/config/." "$BASE/config/"
@@ -31,6 +31,8 @@ cp "$PKG_DIR/requirements.txt" "$BASE/requirements.txt"
 python3 -m venv "$BASE/venv"
 "$BASE/venv/bin/pip" install --upgrade pip wheel
 "$BASE/venv/bin/pip" install -r "$BASE/requirements.txt"
+
+MONCOES_BASE="$BASE" bash "$PKG_DIR/ensure_prefilter_model.sh"
 
 echo
 read -rp "Usuário dos DVRs [admin]: " DVR_USER
@@ -51,6 +53,7 @@ OPENAI_MODEL=gpt-5.6-luna
 OPENAI_REVIEW_MODEL=gpt-5.6-terra
 EVENT_DEBOUNCE_SECONDS=90
 DVR101_POLL_SECONDS=300
+PREFILTER_ENABLED=true
 EVIDENCE_RETENTION_DAYS=30
 REPORT_RETENTION_DAYS=365
 ALERT_WEBHOOK_URL=$ALERT_WEBHOOK_URL
@@ -61,7 +64,7 @@ chown root:"$SERVICE_USER" "$ETC/moncoes.env"
 chmod 640 "$ETC/moncoes.env"
 
 chown -R "$SERVICE_USER:$SERVICE_USER" "$BASE"
-chmod 750 "$BASE" "$BASE/app" "$BASE/config" "$BASE/data" "$BASE/reports" "$BASE/tmp"
+chmod 750 "$BASE" "$BASE/app" "$BASE/config" "$BASE/data" "$BASE/reports" "$BASE/tmp" "$BASE/models"
 
 timedatectl set-timezone America/Sao_Paulo || true
 
@@ -229,6 +232,23 @@ case "${1:-status}" in
     systemctl start moncoes-ai-report-weekly.service
     ls -1t "$BASE/reports"/relatorio_weekly_*.pdf | head -1
     ;;
+  prefilter)
+    sqlite3 -header -column "$BASE/data/moncoes.db" "
+      SELECT
+        day,
+        SUM(received) AS movimentos,
+        SUM(passed) AS enviados_ia,
+        SUM(skipped) AS descartados_local,
+        SUM(fail_open) AS fail_open,
+        CASE WHEN SUM(received)>0
+             THEN ROUND(100.0*SUM(skipped)/SUM(received),1)
+             ELSE 0 END AS economia_pct
+      FROM prefilter_stats
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT 14;
+    "
+    ;;
   observe)
     sed -i 's/^MONCOES_MODE=.*/MONCOES_MODE=observe/' /etc/moncoes-ai/moncoes.env
     systemctl restart moncoes-ai-monitor.service
@@ -240,7 +260,7 @@ case "${1:-status}" in
     echo "Modo produção ativado."
     ;;
   *)
-    echo "Uso: moncoesctl {status|logs [N]|follow|network|health|report-daily|report-weekly|observe|production}"
+    echo "Uso: moncoesctl {status|logs [N]|follow|network|health|report-daily|report-weekly|prefilter|observe|production}"
     exit 2
     ;;
 esac
