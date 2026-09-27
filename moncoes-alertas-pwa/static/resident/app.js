@@ -141,21 +141,28 @@ async function loadStatus(){
     $("metricAnalyzed").textContent=s.today.analyzed;
     $("metricReview").textContent=s.today.sent_for_review;
     $("metricCritical").textContent=s.today.critical;
-    if(s.monitor_active){
+
+    if(s.monitor_state==="active"){
       $("liveBadge").className="live-badge active";
       $("liveBadge").innerHTML='<span class="pulse"></span>Monitoramento ativo';
       $("monitorTitle").textContent="Monitoramento IA ativo";
       $("monitorText").textContent="Sistema operacional e acompanhando eventos";
+    }else if(s.monitor_state==="unavailable"){
+      $("liveBadge").className="live-badge neutral";
+      $("liveBadge").innerHTML='<span class="pulse"></span>Status indisponível';
+      $("monitorTitle").textContent="Status do monitoramento indisponível";
+      $("monitorText").textContent="A administração recebe o diagnóstico técnico do sistema";
     }else{
-      $("liveBadge").className="live-badge down";
-      $("liveBadge").innerHTML='<span class="pulse"></span>Verificação necessária';
-      $("monitorTitle").textContent="Monitoramento em verificação";
-      $("monitorText").textContent="A administração pode estar verificando o sistema";
+      $("liveBadge").className="live-badge waiting";
+      $("liveBadge").innerHTML='<span class="pulse"></span>Atualizando status';
+      $("monitorTitle").textContent="Monitoramento em atualização";
+      $("monitorText").textContent="Aguardando a próxima confirmação automática do sistema";
     }
   }catch{
-    $("liveBadge").className="live-badge down";
-    $("liveBadge").innerHTML='<span class="pulse"></span>Sem atualização';
-    $("monitorText").textContent="Não foi possível consultar o estado agora";
+    $("liveBadge").className="live-badge neutral";
+    $("liveBadge").innerHTML='<span class="pulse"></span>Status indisponível';
+    $("monitorTitle").textContent="Status momentaneamente indisponível";
+    $("monitorText").textContent="Isso não representa, por si só, interrupção do monitoramento";
   }
 }
 
