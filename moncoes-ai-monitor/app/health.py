@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
+
+import requests
 import subprocess
 import time
 
@@ -58,5 +61,19 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
     json.dumps(payload, indent=2),
     encoding="utf-8",
 )
+
+portal = os.getenv("PORTAL_BASE_URL", "").strip().rstrip("/")
+token = os.getenv("PORTAL_INGEST_TOKEN", "").strip()
+if portal and token:
+    try:
+        requests.post(
+            f"{portal}/api/ingest/health",
+            json={"payload": payload},
+            headers={"X-Ingest-Token": token},
+            timeout=8,
+        ).raise_for_status()
+    except Exception:
+        pass
+
 print(json.dumps(payload, indent=2))
 raise SystemExit(0 if healthy else 1)
