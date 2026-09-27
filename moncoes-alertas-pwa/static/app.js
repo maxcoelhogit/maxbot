@@ -102,7 +102,10 @@ async function boot(){
   await Promise.all([loadStatus(),loadEvents(),loadReports()]);
 }
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});
-$("installBtn").addEventListener("click",async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("installBtn").classList.add("hidden")}else{alert("Use o menu do navegador e escolha “Adicionar à tela de início” / “Instalar aplicativo”.")}});
+const isStandalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+if(!isStandalone&&isIOS)$("installBtn").classList.remove("hidden");
+$("installBtn").addEventListener("click",async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("installBtn").classList.add("hidden")}else{alert("No iPhone/iPad: toque em Compartilhar e depois em “Adicionar à Tela de Início”. No Android: use o menu do navegador e escolha “Instalar aplicativo”.")}});
 $("joinBtn").addEventListener("click",registerDevice);
 $("pushBtn").addEventListener("click",enablePush);
 $("refreshBtn").addEventListener("click",async()=>Promise.all([loadStatus(),loadEvents(),loadReports()]));
