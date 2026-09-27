@@ -137,6 +137,10 @@ def _gate_motion_threshold(cam: dict) -> float:
     return max(0.005, min(float(value), 0.30))
 
 
+def _vehicle_requires_gate_change(cam: dict) -> bool:
+    return bool(cam.get("prefilter_vehicle_requires_gate_change", False))
+
+
 def _expanded_box(
     box: tuple[int, int, int, int],
     width: int,
@@ -321,9 +325,10 @@ def inspect_frames(frames: list[Path], cam: dict) -> PrefilterDecision:
                 )
             )
 
-            # On the gate camera, vehicles alone are not enough: a car simply
-            # passing along the street should be ignored. People always pass.
-            if _gate_watch(cam) and not any(
+            # On selected gate-facing cameras, vehicles alone are not enough:
+            # a car simply passing along the street should be ignored.
+            # People (and other explicitly relevant classes) always pass.
+            if _vehicle_requires_gate_change(cam) and not any(
                 label in {"person", "bicycle", "cat", "dog"}
                 for label in ordered
             ):
