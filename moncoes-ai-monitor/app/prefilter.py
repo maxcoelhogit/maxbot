@@ -104,6 +104,24 @@ def _threshold(cam: dict) -> float:
     return 0.18
 
 
+def _label_threshold(cam: dict, label: str, default: float) -> float:
+    """Allow stricter confidence only for noisy classes/cameras.
+
+    The global threshold remains recall-oriented. A camera may raise the bar
+    for one class (for example, person near a bicycle rack) without making
+    small dogs/cats harder to detect.
+    """
+    configured = cam.get("prefilter_confidence_by_class")
+    if not isinstance(configured, dict):
+        return default
+
+    value = configured.get(label)
+    if value is None:
+        return default
+
+    return max(default, min(float(value), 0.95))
+
+
 def _allowed_labels(cam: dict) -> set[str]:
     configured = cam.get("prefilter_classes")
     if configured:
@@ -356,6 +374,9 @@ def inspect_frames(
                 frame_boxes.append((x1, y1, x2, y2))
 
                 if label not in allowed_labels:
+                    continue
+
+                if confidence < _label_threshold(cam, label, threshold):
                     continue
 
                 labels[label] = max(labels.get(label, 0.0), confidence)
