@@ -60,7 +60,8 @@
         ],
         "prefilter_confidence": 0.14,
         "prefilter_gate_watch": true,
-        "prefilter_gate_motion_threshold": 0.03
+        "prefilter_gate_motion_threshold": 0.03,
+        "prefilter_vehicle_requires_gate_change": true
       },
       "4": {
         "name": "Garagem interna",
