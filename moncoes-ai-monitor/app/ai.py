@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Literal
@@ -7,7 +8,9 @@ from typing import Literal
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from common import CONFIG_DIR, data_url, load_json
+from common import CONFIG_DIR, data_url, load_json, record_ai_usage
+
+log = logging.getLogger("moncoes-ai")
 
 
 EventCategory = Literal[
@@ -74,6 +77,15 @@ Quando houver retirada de objeto de sala de energia, não afirme furto; descreva
 Quando o portão aparecer aberto em apenas um momento, não conclua falha de fechamento. Para 'garage_gate_open' crítico, use a sequência temporal e exija persistência visual após a passagem.
 """
 
+SENSITIVE_CATEGORIES = {
+    "garage_gate_open",
+    "forced_access_attempt",
+    "energy_room_object_removal",
+    "vandalism",
+    "violence_or_harassment",
+    "other_safety_risk",
+}
+
 
 def camera_context(camera: dict) -> str:
     items = []
@@ -86,26 +98,142 @@ def camera_context(camera: dict) -> str:
     return "\n".join(items)
 
 
-def analyze(sheet: Path, camera: dict, dvr: str, channel: int, stage: str = "triage") -> Analysis:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return Analysis(
-            status="uncertain",
-            category="ai_disabled",
-            confidence=0.0,
-            description="API OpenAI não configurada.",
-            rule_reference="nenhuma",
-            reasons=[],
-            needs_human_review=False,
+def _disabled() -> Analysis:
+    return Analysis(
+        status="uncertain",
+        category="ai_disabled",
+        confidence=0.0,
+        description="API OpenAI não configurada.",
+        rule_reference="nenhuma",
+        reasons=[],
+        needs_human_review=False,
+    )
+
+
+def _usage_value(obj, name: str) -> int:
+    try:
+        return int(getattr(obj, name, 0) or 0)
+    except Exception:
+        return 0
+
+
+def _record_response_usage(response, stage: str, model: str) -> None:
+    try:
+        usage = getattr(response, "usage", None)
+        input_details = getattr(usage, "input_tokens_details", None)
+        output_details = getattr(usage, "output_tokens_details", None)
+        record_ai_usage(
+            stage=stage,
+            model=model,
+            service_tier=getattr(response, "service_tier", None),
+            input_tokens=_usage_value(usage, "input_tokens"),
+            cached_input_tokens=_usage_value(input_details, "cached_tokens"),
+            cache_write_tokens=_usage_value(input_details, "cache_write_tokens"),
+            output_tokens=_usage_value(usage, "output_tokens"),
+            reasoning_tokens=_usage_value(output_details, "reasoning_tokens"),
+        )
+    except Exception as exc:
+        log.warning("Falha ao registrar telemetria de uso: %s", exc)
+
+
+def _call(
+    client: OpenAI,
+    *,
+    model: str,
+    effort: str,
+    detail: str,
+    prompt: str,
+    sheet: Path,
+    stage: str,
+) -> Analysis:
+    response = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": SYSTEM},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {"type": "input_image", "image_url": data_url(sheet), "detail": detail},
+                ],
+            },
+        ],
+        text_format=Analysis,
+        reasoning={"effort": effort},
+        service_tier=os.getenv("MONCOES_AI_SERVICE_TIER", "default"),
+        prompt_cache_key=os.getenv("MONCOES_AI_CACHE_KEY", "moncoes-ai-monitor"),
+        store=False,
+    )
+    _record_response_usage(response, stage, model)
+    if response.output_parsed is None:
+        raise RuntimeError(f"Resposta estruturada vazia em {stage} com {model}")
+    return response.output_parsed
+
+
+def _call_with_fallback(
+    client: OpenAI,
+    *,
+    model: str,
+    fallback_model: str,
+    effort: str,
+    fallback_effort: str,
+    detail: str,
+    prompt: str,
+    sheet: Path,
+    stage: str,
+) -> Analysis:
+    try:
+        return _call(
+            client,
+            model=model,
+            effort=effort,
+            detail=detail,
+            prompt=prompt,
+            sheet=sheet,
+            stage=stage,
+        )
+    except Exception as exc:
+        if not fallback_model or fallback_model == model:
+            raise
+        log.warning(
+            "Modelo %s falhou em %s; usando fallback %s: %s",
+            model,
+            stage,
+            fallback_model,
+            exc,
+        )
+        return _call(
+            client,
+            model=fallback_model,
+            effort=fallback_effort,
+            detail=detail,
+            prompt=prompt,
+            sheet=sheet,
+            stage=f"{stage}_fallback",
         )
 
-    client = OpenAI(api_key=api_key)
-    if stage == "triage":
-        model = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
-        detail = "low"
-    else:
-        model = os.getenv("OPENAI_REVIEW_MODEL", "gpt-5.6-terra")
-        detail = "high"
+
+def _needs_escalation(result: Analysis) -> bool:
+    if result.status in {"critical", "uncertain"}:
+        return True
+    if result.status == "potential_occurrence" and result.category in SENSITIVE_CATEGORIES:
+        return True
+    if result.status == "potential_occurrence" and result.confidence < float(
+        os.getenv("MONCOES_AI_ESCALATE_CONFIDENCE", "0.82")
+    ):
+        return True
+    if result.status == "normal" and result.confidence < float(
+        os.getenv("MONCOES_AI_NORMAL_GUARD_CONFIDENCE", "0.78")
+    ):
+        return True
+    return False
+
+
+def analyze(sheet: Path, camera: dict, dvr: str, channel: int, stage: str = "triage") -> Analysis:
+    try:
+        client = OpenAI()
+    except Exception:
+        return _disabled()
 
     prompt = f"""Analise este evento de CFTV.
 DVR: {dvr}; câmera física: {channel}; local: {camera['name']}; prioridade: {camera['priority']}.
@@ -124,19 +252,81 @@ ATENÇÃO ESPECIAL ÀS INTERAÇÕES HUMANAS:
 Um toque breve no ombro, costas ou braço, abraço, aproximação, conversa ou gesto de carinho sem resistência, queda, golpe, contenção forçada ou tentativa de afastamento deve ser tratado como atividade normal. Não converta contato social comum em alerta de violência/assédio.
 """
 
-    response = client.responses.parse(
-        model=model,
-        input=[
-            {"role": "system", "content": SYSTEM},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url(sheet), "detail": detail},
-                ],
-            },
-        ],
-        text_format=Analysis,
-        store=False,
-    )
-    return response.output_parsed
+    if stage == "triage":
+        result = _call_with_fallback(
+            client,
+            model=os.getenv("MONCOES_AI_TRIAGE_MODEL", "gpt-6-luna"),
+            fallback_model=os.getenv("MONCOES_AI_TRIAGE_FALLBACK", "gpt-5.6-luna"),
+            effort=os.getenv("MONCOES_AI_TRIAGE_REASONING", "none"),
+            fallback_effort="none",
+            detail="low",
+            prompt=prompt,
+            sheet=sheet,
+            stage="triage",
+        )
+
+        # Safety guard: low-confidence normal classifications receive one
+        # stronger Luna pass before the event is allowed to disappear as normal.
+        guard_threshold = float(
+            os.getenv("MONCOES_AI_TRIAGE_GUARD_CONFIDENCE", "0.82")
+        )
+        if result.status == "normal" and result.confidence < guard_threshold:
+            try:
+                result = _call_with_fallback(
+                    client,
+                    model=os.getenv("MONCOES_AI_REVIEW_MODEL", "gpt-6-luna"),
+                    fallback_model=os.getenv("MONCOES_AI_REVIEW_FALLBACK", "gpt-5.6-terra"),
+                    effort=os.getenv("MONCOES_AI_REVIEW_REASONING", "high"),
+                    fallback_effort="medium",
+                    detail="high",
+                    prompt=prompt,
+                    sheet=sheet,
+                    stage="triage_guard",
+                )
+            except Exception as exc:
+                log.warning("Guarda de triagem falhou; mantendo triagem inicial: %s", exc)
+        return result
+
+    if stage == "review":
+        result = _call_with_fallback(
+            client,
+            model=os.getenv("MONCOES_AI_REVIEW_MODEL", "gpt-6-luna"),
+            fallback_model=os.getenv("MONCOES_AI_REVIEW_FALLBACK", "gpt-5.6-terra"),
+            effort=os.getenv("MONCOES_AI_REVIEW_REASONING", "high"),
+            fallback_effort="medium",
+            detail="high",
+            prompt=prompt,
+            sheet=sheet,
+            stage="review",
+        )
+
+        if _needs_escalation(result):
+            try:
+                return _call(
+                    client,
+                    model=os.getenv("MONCOES_AI_ESCALATION_MODEL", "gpt-5.6-terra"),
+                    effort=os.getenv("MONCOES_AI_ESCALATION_REASONING", "medium"),
+                    detail="high",
+                    prompt=prompt,
+                    sheet=sheet,
+                    stage="escalation",
+                )
+            except Exception as exc:
+                log.warning(
+                    "Escalonamento Terra falhou; mantendo revisão Luna: %s",
+                    exc,
+                )
+        return result
+
+    if stage == "escalation":
+        return _call(
+            client,
+            model=os.getenv("MONCOES_AI_ESCALATION_MODEL", "gpt-5.6-terra"),
+            effort=os.getenv("MONCOES_AI_ESCALATION_REASONING", "medium"),
+            detail="high",
+            prompt=prompt,
+            sheet=sheet,
+            stage="escalation",
+        )
+
+    raise ValueError(f"estágio IA desconhecido: {stage}")
