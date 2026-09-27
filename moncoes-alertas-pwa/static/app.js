@@ -89,16 +89,38 @@ async function loadReports(){
   }catch(e){$("reports").innerHTML='<p class="subtle">Falha ao carregar relatórios.</p>'}
 }
 async function downloadReport(id,name){
-  const r=await fetch("/api/reports/"+id+"/download",{headers:authHeaders()});if(!r.ok){alert("Não foi possível abrir o relatório.");return}
-  const blob=await r.blob();const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.target="_blank";a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);
+  try{
+    const link=await api("/api/reports/"+id+"/link",{method:"POST"});
+    window.location.href=link.url;
+  }catch(e){
+    alert("Não foi possível baixar o relatório: "+(e.message||"erro desconhecido"));
+  }
 }
 window.downloadReport=downloadReport;
+async function testPush(){
+  try{
+    const r=await api("/api/push/test",{method:"POST"});
+    $("pushState").textContent="Teste enviado. Verifique a notificação do sistema.";
+    if(r.sent<1)alert("Nenhuma notificação foi enviada.");
+  }catch(e){
+    const msg=typeof e.message==="string"?e.message:"Falha no teste";
+    alert("Teste de notificação falhou: "+msg);
+  }
+}
 async function boot(){
   if(!localStorage.getItem(TOKEN_KEY)){showJoin();return}
   showApp();
-  try{const me=await api("/api/me");$("deviceTitle").textContent=me.name}catch{return}
+  try{
+    const me=await api("/api/me");
+    $("deviceTitle").textContent=me.name;
+    if(me.push_subscribed){
+      $("pushState").textContent="Assinatura push registrada neste aparelho.";
+      $("pushBtn").textContent="Notificações ativadas";
+    }else if("Notification" in window&&Notification.permission==="granted"){
+      $("pushState").textContent="Permissão concedida, mas a assinatura push ainda não está registrada.";
+    }
+  }catch{return}
   if("serviceWorker" in navigator){await navigator.serviceWorker.register("/sw.js")}
-  if("Notification" in window&&Notification.permission==="granted")$("pushState").textContent="Notificações permitidas neste aparelho.";
   await Promise.all([loadStatus(),loadEvents(),loadReports()]);
 }
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});
@@ -108,6 +130,7 @@ if(!isStandalone&&isIOS)$("installBtn").classList.remove("hidden");
 $("installBtn").addEventListener("click",async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("installBtn").classList.add("hidden")}else{alert("No iPhone/iPad: toque em Compartilhar e depois em “Adicionar à Tela de Início”. No Android: use o menu do navegador e escolha “Instalar aplicativo”.")}});
 $("joinBtn").addEventListener("click",registerDevice);
 $("pushBtn").addEventListener("click",enablePush);
+$("testPushBtn").addEventListener("click",testPush);
 $("refreshBtn").addEventListener("click",async()=>Promise.all([loadStatus(),loadEvents(),loadReports()]));
 boot();
 setInterval(()=>{if(localStorage.getItem(TOKEN_KEY))loadStatus()},60000);
